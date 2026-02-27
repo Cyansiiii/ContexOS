@@ -55,6 +55,15 @@ uvicorn main:app --reload
 ```
 *The backend API will run on `http://localhost:8000`*
 
+### 3.5 Load Demo Data (Important!)
+With the backend running, open a new terminal and run:
+` ` `bash
+cd backend
+source venv/bin/activate
+python demo_data.py
+` ` `
+This pre-loads 15 realistic company memories so ContextOS can answer questions immediately.
+
 ### 4. Start the Frontend App (React/Vite)
 Open a new terminal session, navigate to the `frontend` folder, install JS dependencies, and start the Vite dev server:
 ```bash

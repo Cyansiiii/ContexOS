@@ -143,7 +143,7 @@ function App() {
 
         {/* --- SEARCH / HOME VIEW --- */}
         {activeTab === 'search' && (
-          <div className="animate-slide-up max-w-7xl mx-auto relative relative">
+          <div className="animate-slide-up max-w-7xl mx-auto relative">
 
             {/* HERO TYPOGRAPHY */}
             <div className="text-center max-w-4xl mx-auto mb-16 relative z-10 pt-10">

@@ -40,6 +40,9 @@ def store_memory(text, metadata):
 
 def search_memory(question):
     """Search memory and get AI answer"""
+    if vectorstore is None or llm is None:
+        return "ContextOS is not ready. Please ensure Ollama is running and ChromaDB is accessible.", []
+        
     # Find relevant stored memories
     relevant_docs = vectorstore.similarity_search(question, k=5)
     

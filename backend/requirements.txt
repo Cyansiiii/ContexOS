@@ -9,3 +9,5 @@ google-auth
 google-api-python-client
 slack-sdk
 python-dotenv
+
+langchain-text-splitters
