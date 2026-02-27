@@ -384,8 +384,8 @@ function App() {
 
                 <div className="space-y-4 relative z-10">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <span className="text-sm font-medium text-slate-400">Inference</span>
-                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded">{amdStatus ? amdStatus.inference : "On-Device"}</span>
+                    <span className="text-sm font-medium text-slate-400">Model</span>
+                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded">Ollama Phi-3 Mini</span>
                   </div>
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                     <span className="text-sm font-medium text-slate-400">Cloud Calls</span>

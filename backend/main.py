@@ -64,7 +64,7 @@ async def ask_question(req: AskRequest):
 def get_stats():
     return {
         "total_memories": get_db_stats(),
-        "model": "Mistral 7B (Local)",
+        "model": "Phi-3 Mini (Local CPU/NPU)",
         "status": "operational",
         "cloud_calls": 0,
         "recent_activity": query_history

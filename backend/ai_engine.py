@@ -9,7 +9,7 @@ DB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "c
 
 try:
     # This is the AI brain
-    llm = Ollama(model="mistral")  # Local AI, no internet needed
+    llm = Ollama(model="phi3:mini")  # Local AI, no internet needed
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
 
     # This is the memory storage
