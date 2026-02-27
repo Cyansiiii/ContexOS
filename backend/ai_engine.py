@@ -2,20 +2,27 @@ import os
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.llms import Ollama
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Use precise absolute path if needed, or relative path ensuring it runs correctly
 DB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "chroma_db")
 
-# This is the AI brain
-llm = Ollama(model="mistral")  # Local AI, no internet needed
-embeddings = OllamaEmbeddings(model="nomic-embed-text")
+try:
+    # This is the AI brain
+    llm = Ollama(model="mistral")  # Local AI, no internet needed
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
 
-# This is the memory storage
-vectorstore = Chroma(
-    persist_directory=DB_DIR,
-    embedding_function=embeddings
-)
+    # This is the memory storage
+    vectorstore = Chroma(
+        persist_directory=DB_DIR,
+        embedding_function=embeddings
+    )
+except Exception as e:
+    print(f"⚠️ Ollama or ChromaDB not configured correctly: {e}")
+    print("Start Ollama with: ollama serve")
+    llm = None
+    embeddings = None
+    vectorstore = None
 
 def store_memory(text, metadata):
     """Save any piece of information into memory"""
@@ -24,10 +31,12 @@ def store_memory(text, metadata):
         chunk_overlap=50
     )
     chunks = splitter.split_text(text)
-    vectorstore.add_texts(
-        texts=chunks,
-        metadatas=[metadata] * len(chunks)
-    )
+    if vectorstore is not None:
+        vectorstore.add_texts(
+            texts=chunks,
+            metadatas=[metadata] * len(chunks)
+        )
+        vectorstore.persist()
 
 def search_memory(question):
     """Search memory and get AI answer"""
@@ -47,3 +56,13 @@ def search_memory(question):
     
     answer = llm.invoke(prompt)
     return answer, relevant_docs
+
+def get_db_stats():
+    """Return stats about the vector database"""
+    if vectorstore is None:
+        return 0
+    try:
+        count = vectorstore.get()
+        return len(count['ids']) if count and 'ids' in count else 0
+    except Exception:
+        return 0

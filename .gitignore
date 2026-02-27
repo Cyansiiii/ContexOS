@@ -14,4 +14,5 @@ frontend/.env
 frontend/.eslintcache
 
 # Database
-database/chroma_db/
+database/chroma_db/*.sqlite3
+database/chroma_db/chroma.sqlite3

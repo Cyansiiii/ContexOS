@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import {
   Search, Database, MessageSquare, BrainCircuit,
@@ -27,6 +27,30 @@ function App() {
   const [uploadSource, setUploadSource] = useState('document')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
+
+  const [stats, setStats] = useState({ total_memories: 0, recent_activity: [] })
+  const [amdStatus, setAmdStatus] = useState(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      const fetchStats = async () => {
+        setStatsLoading(true)
+        try {
+          const [statsRes, amdRes] = await Promise.all([
+            axios.get('http://localhost:8000/stats'),
+            axios.get('http://localhost:8000/amd-status')
+          ])
+          setStats(statsRes.data)
+          setAmdStatus(amdRes.data)
+        } catch (error) {
+          console.error("Error fetching stats:", error)
+        }
+        setStatsLoading(false)
+      }
+      fetchStats()
+    }
+  }, [activeTab])
 
   const askQuestion = async () => {
     if (!question.trim()) return;
@@ -327,9 +351,11 @@ function App() {
                   <Database className="w-12 h-12 text-blue-500" />
                 </div>
                 <h3 className="text-slate-500 font-semibold mb-2">Total Memories</h3>
-                <p className="text-5xl font-bold text-slate-900 tracking-tight">1,248</p>
+                <p className="text-5xl font-bold text-slate-900 tracking-tight">
+                  {statsLoading ? "..." : stats.total_memories}
+                </p>
                 <div className="mt-6 inline-flex items-center gap-1 text-sm font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">
-                  <Activity className="w-4 h-4" /> +12 verified this week
+                  <Activity className="w-4 h-4" /> Live from ChromaDB
                 </div>
               </div>
 
@@ -338,25 +364,36 @@ function App() {
                   <MessageSquare className="w-12 h-12 text-[#8250f2]" />
                 </div>
                 <h3 className="text-slate-500 font-semibold mb-2">Queries Answered</h3>
-                <p className="text-5xl font-bold text-slate-900 tracking-tight">847</p>
+                <p className="text-5xl font-bold text-slate-900 tracking-tight">
+                  {statsLoading ? "..." : stats.recent_activity.length}
+                </p>
                 <div className="mt-6 inline-flex items-center gap-1 text-sm font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-lg">
-                  <BrainCircuit className="w-4 h-4" /> 98% accuracy
+                  <BrainCircuit className="w-4 h-4" /> 100% Local Privacy
                 </div>
               </div>
 
               <div className="bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-500/30 to-blue-500/30 blur-3xl rounded-full"></div>
-                <h3 className="text-slate-400 font-semibold mb-2 relative z-10">AI Engine Status</h3>
-                <p className="text-3xl font-bold mb-6 relative z-10">Mistral Local</p>
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-red-500/30 to-orange-500/30 blur-3xl rounded-full"></div>
+                <h3 className="text-slate-400 font-semibold mb-2 relative z-10 flex items-center justify-between">
+                  AI Engine Status
+                  <span className="flex items-center gap-1 text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full"><div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>ACTIVE</span>
+                </h3>
+                <p className="text-2xl font-bold mb-6 relative z-10 text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
+                  {amdStatus ? amdStatus.device : "AMD Ryzen AI"}
+                </p>
 
                 <div className="space-y-4 relative z-10">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <span className="text-sm font-medium text-slate-400">LLM Model</span>
-                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded">Ollama Mistral 7B</span>
+                    <span className="text-sm font-medium text-slate-400">Inference</span>
+                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded">{amdStatus ? amdStatus.inference : "On-Device"}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <span className="text-sm font-medium text-slate-400">Cloud Calls</span>
+                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded text-emerald-400">0</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-400">Embeddings</span>
-                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded">Nomic-Embed</span>
+                    <span className="text-sm font-medium text-slate-400">Privacy</span>
+                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded">{amdStatus ? amdStatus.privacy : "100% Local"}</span>
                   </div>
                 </div>
               </div>
@@ -365,24 +402,26 @@ function App() {
             {/* Activity Stream */}
             <h3 className="text-xl font-bold text-slate-900 mb-6">Recent Usage</h3>
             <div className="glass-card rounded-3xl p-4 md:p-6 border-slate-200">
-              {[
-                { q: "Why did we switch to Azure for the staging environment?", time: "2 hours ago", author: "Rahul M." },
-                { q: "What was the Q3 marketing budget allocation for paid ads?", time: "5 hours ago", author: "Priya S." },
-                { q: "Who is handling the Acme Corp enterprise renewal contract?", time: "Yesterday", author: "Dev A." },
-              ].map((item, i) => (
-                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors border-b border-slate-100 last:border-0 group cursor-pointer">
-                  <div className="flex items-start sm:items-center gap-4 mb-2 sm:mb-0">
-                    <div className="w-10 h-10 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
-                      {item.author[0]}
+              {statsLoading ? (
+                <div className="text-center text-slate-500 py-8">Loading activity...</div>
+              ) : stats.recent_activity.length > 0 ? (
+                stats.recent_activity.map((item, i) => (
+                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors border-b border-slate-100 last:border-0 group cursor-pointer">
+                    <div className="flex items-start sm:items-center gap-4 mb-2 sm:mb-0">
+                      <div className="w-10 h-10 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                        {item.author[0]}
+                      </div>
+                      <div>
+                        <p className="text-slate-900 font-bold group-hover:text-[#8250f2] transition-colors">{item.q}</p>
+                        <p className="text-sm text-slate-500 font-medium">Asked by {item.author}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-slate-900 font-bold group-hover:text-[#8250f2] transition-colors">{item.q}</p>
-                      <p className="text-sm text-slate-500 font-medium">Asked by {item.author}</p>
-                    </div>
+                    <span className="text-sm font-semibold text-slate-400 whitespace-nowrap bg-slate-100 px-3 py-1 rounded-full">{item.time}</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-400 whitespace-nowrap bg-slate-100 px-3 py-1 rounded-full">{item.time}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center text-slate-500 py-8">No recent queries. Ask a question to see it here!</div>
+              )}
             </div>
           </div>
         )}
