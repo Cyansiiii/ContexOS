@@ -7,6 +7,7 @@ import { LineShadowText } from './components/core/line-shadow-text'
 import { AnimatedListDemo } from './components/core/AnimatedListDemo'
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import { BorderBeam } from "@/components/ui/border-beam"
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import {
   Search, Database, MessageSquare, BrainCircuit,
@@ -101,18 +102,18 @@ function App() {
             </div>
 
             <div className="hidden lg:flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-full border border-slate-200/50 dark:border-slate-700/50">
-              <button
+              <InteractiveHoverButton
                 onClick={() => setActiveTab('dashboard')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'dashboard' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
-              >Dashboard</button>
-              <button
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all border-none ${activeTab === 'dashboard' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+              >Dashboard</InteractiveHoverButton>
+              <InteractiveHoverButton
                 onClick={() => setActiveTab('search')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'search' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
-              >Tasks & Search</button>
-              <button
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all border-none ${activeTab === 'search' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+              >Tasks & Search</InteractiveHoverButton>
+              <InteractiveHoverButton
                 onClick={() => setActiveTab('upload')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'upload' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
-              >Analytics</button>
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all border-none ${activeTab === 'upload' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+              >Analytics</InteractiveHoverButton>
             </div>
           </div>
 
