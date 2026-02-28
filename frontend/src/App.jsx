@@ -387,18 +387,8 @@ function App() {
 
                   {/* Timeline block */}
                   <div className="relative h-12 mb-2">
-                    <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-100 dark:bg-slate-800"></div>
-                    <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full flex items-center gap-4 group cursor-pointer">
-                      <div className="w-12 text-right text-xs font-bold text-slate-400 dark:text-slate-500">10:30</div>
-                      <div className="w-3 h-3 rounded-full border-2 border-white dark:border-[#1a1c22] bg-blue-500 relative z-10 group-hover:scale-125 transition-transform"></div>
-                      <div className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl p-3 flex items-center gap-3 transition-colors group-hover:border-blue-200 dark:group-hover:border-blue-500">
-                        <Video className="w-4 h-4 text-blue-500" />
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-white mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Join on Google Meet</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Design team weekly sync</p>
-                        </div>
-                      </div>
-                    </div>
+                    <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1 bg-slate-100 dark:bg-slate-800 rounded-full"></div>
+                    <div className="absolute top-1/2 -translate-y-1/2 left-[10%] w-[40%] h-8 bg-blue-500/10 border border-blue-500/20 rounded-md"></div>
                   </div>
                   <div className="flex justify-between text-xs font-semibold text-slate-400 mb-6">
                     <span>10:15<span className="ml-4 text-slate-800 dark:text-slate-200">10:30</span></span>
