@@ -8,6 +8,7 @@ import { LineShadowText } from './components/core/line-shadow-text'
 import { AnimatedListDemo } from './components/core/AnimatedListDemo'
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import { BorderBeam } from "@/components/ui/border-beam"
+import { ScrollMarkerReveal } from "./components/ui/scroll-marker-reveal"
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import {
   Search, Database, MessageSquare, BrainCircuit,
@@ -183,8 +184,16 @@ function App() {
                     your knowledge?
                   </LineShadowText>
                 </h1>
-                <p className="text-xl text-slate-600 dark:text-slate-300 font-normal mb-8 max-w-2xl mx-auto">
-                  <span className="font-semibold text-slate-800 dark:text-white">Ask, chat, and research</span> using verified company knowledge. Always cited. Always secure.
+                <p className="text-xl text-slate-600 dark:text-slate-300 font-normal mb-8 max-w-2xl mx-auto leading-loose flex flex-wrap justify-center gap-x-2 gap-y-2">
+                  <ScrollMarkerReveal delay={0} markerColor="bg-amber-200 dark:bg-amber-600/40">
+                    <span className="font-semibold text-slate-800 dark:text-white">Ask, chat, and research</span>
+                  </ScrollMarkerReveal>
+                  <ScrollMarkerReveal delay={0.2} markerColor="bg-purple-200 dark:bg-purple-600/40">
+                    using verified company knowledge.
+                  </ScrollMarkerReveal>
+                  <ScrollMarkerReveal delay={0.4} markerColor="bg-emerald-200 dark:bg-emerald-600/40">
+                    Always cited. Always secure.
+                  </ScrollMarkerReveal>
                 </p>
 
                 {/* SECURITY BADGES (Mocking Guru) */}

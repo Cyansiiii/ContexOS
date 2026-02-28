@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import './Integrations.css';
 import CurvedLoop from './components/core/CurvedLoop';
 import { SparklesText } from "@/components/ui/sparkles-text";
+import { ScrollMarkerReveal } from "@/components/ui/scroll-marker-reveal";
 
 export default function Integrations() {
   const stageRef = useRef(null);
@@ -73,8 +74,13 @@ export default function Integrations() {
           </SparklesText>
         </h2>
 
-        <p className="section-sub">
-          ContextOS silently connects to everything your team already uses. All data stays local — on your system.
+        <p className="section-sub leading-loose flex flex-wrap justify-center gap-x-1.5 gap-y-2 mt-4">
+          <ScrollMarkerReveal delay={0} markerColor="bg-blue-200 dark:bg-blue-600/40">
+            ContextOS silently connects to everything your team already uses.
+          </ScrollMarkerReveal>
+          <ScrollMarkerReveal delay={0.3} markerColor="bg-purple-200 dark:bg-purple-600/40">
+            All data stays local — on your system.
+          </ScrollMarkerReveal>
         </p>
 
         <div className="orbit-stage" ref={stageRef}>
