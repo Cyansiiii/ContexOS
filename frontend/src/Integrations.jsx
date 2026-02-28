@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import './Integrations.css';
 import CurvedLoop from './components/core/CurvedLoop';
+import { SparklesText } from "@/components/ui/sparkles-text";
 
 export default function Integrations() {
   const stageRef = useRef(null);
@@ -67,7 +68,9 @@ export default function Integrations() {
         </div>
 
         <h2 className="section-title">
-          Integrate with your<br /><span>existing tools in seconds</span>
+          <SparklesText sparklesCount={8}>
+            Integrate with your<br /><span>existing tools in seconds</span>
+          </SparklesText>
         </h2>
 
         <p className="section-sub">
