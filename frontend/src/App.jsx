@@ -146,8 +146,8 @@ function App() {
                 C
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Ethan Walker</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">ethan.walker@gmail.com</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Anant Anandam</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">anant.anandam@gmail.com</p>
               </div>
             </div>
           </div>
