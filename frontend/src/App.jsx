@@ -7,6 +7,7 @@ import { LineShadowText } from './components/core/line-shadow-text'
 import { AnimatedListDemo } from './components/core/AnimatedListDemo'
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import { BorderBeam } from "@/components/ui/border-beam"
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import {
   Search, Database, MessageSquare, BrainCircuit,
   Activity, UploadCloud, Zap,
@@ -79,6 +80,13 @@ function App() {
     }
     setUploading(false);
   }
+  const chartData = activityPeriod === 'Week' ? [
+    { d: 'Mon', h: 60 }, { d: 'Tue', h: 75 }, { d: 'Wed', h: 95, active: true, val: '8.2h' }, { d: 'Thu', h: 50 }, { d: 'Fri', h: 85 }, { d: 'Sat', h: 40 }, { d: 'Sun', h: 65 }
+  ] : activityPeriod === 'Month' ? [
+    { d: 'Wk1', h: 45 }, { d: 'Wk2', h: 80 }, { d: 'Wk3', h: 65 }, { d: 'Wk4', h: 90, active: true, val: '32.2h' }
+  ] : [
+    { d: 'Q1', h: 30 }, { d: 'Q2', h: 50 }, { d: 'Q3', h: 70 }, { d: 'Q4', h: 85, active: true, val: '380h' }
+  ];
 
   return (
     <div className="min-h-screen text-slate-800 dark:text-slate-200 selection:bg-purple-200 overflow-x-hidden relative hero-gradient">
@@ -435,40 +443,28 @@ function App() {
                       </div>
                     </div>
 
-                    {/* Bar Graph Mock */}
-                    <div className="flex items-end gap-3 sm:gap-4 md:gap-5 lg:gap-6 h-full ml-auto w-3/5">
-                      {
-                        (activityPeriod === 'Week' ? [
-                          { h: '60%', d: 'Mon', color: 'bg-blue-500' },
-                          { h: '75%', d: 'Tue', color: 'bg-blue-600' },
-                          { h: '95%', d: 'Wed', color: 'bg-blue-600', active: true, val: '8.2h' },
-                          { h: '50%', d: 'Thu', color: 'bg-blue-500' },
-                          { h: '85%', d: 'Fri', color: 'bg-blue-500' },
-                          { h: '40%', d: 'Sat', color: 'bg-blue-400' },
-                          { h: '65%', d: 'Sun', color: 'bg-blue-600' },
-                        ] : activityPeriod === 'Month' ? [
-                          { h: '45%', d: 'Wk1', color: 'bg-blue-500' },
-                          { h: '80%', d: 'Wk2', color: 'bg-blue-600' },
-                          { h: '65%', d: 'Wk3', color: 'bg-blue-500' },
-                          { h: '90%', d: 'Wk4', color: 'bg-blue-600', active: true, val: '32.2h' },
-                        ] : [
-                          { h: '30%', d: 'Q1', color: 'bg-blue-400' },
-                          { h: '50%', d: 'Q2', color: 'bg-blue-500' },
-                          { h: '70%', d: 'Q3', color: 'bg-blue-500' },
-                          { h: '85%', d: 'Q4', color: 'bg-blue-600', active: true, val: '380h' },
-                        ]).map((bar, i) => (
-                          <div key={i} className="flex flex-col items-center flex-1 group">
-                            <div className={`w-full rounded-t-xl relative border ${bar.active ? 'border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-white/5 h-full' : 'border-transparent h-full bg-slate-50 dark:bg-white/5'}`}>
-                              <div className={`absolute bottom-0 w-full rounded-xl ${bar.color} ${bar.active ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : ''} animate-slide-up bg-gradient-to-t from-blue-700 to-blue-400 opacity-90 transition-all group-hover:opacity-100`} style={{ height: bar.h, transition: 'height 1s ease-out', animationDelay: `${i * 100}ms` }} key={`${activityPeriod}-${i}`}></div>
-                              {bar.active && (
-                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#212121] dark:bg-slate-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap z-10">
-                                  {bar.val || '8.2h'}
+                    {/* Bar Graph Recharts */}
+                    <div className="flex items-end h-full ml-auto w-[65%] sm:w-[50%] md:w-3/5 lg:w-[65%] mt-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
+                          <XAxis dataKey="d" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }} dy={10} />
+                          <Tooltip cursor={{ fill: 'transparent', opacity: 0.1 }} content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-[#212121] dark:bg-slate-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xl -translate-y-4">
+                                  {payload[0].payload.val || `${(payload[0].value / 10).toFixed(1)}h`}
                                 </div>
-                              )}
-                            </div>
-                            <span className={`text-xs mt-3 font-semibold ${bar.active ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>{bar.d}</span>
-                          </div>
-                        ))}
+                              );
+                            }
+                            return null;
+                          }} />
+                          <Bar dataKey="h" radius={[6, 6, 6, 6]} animationDuration={1000}>
+                            {chartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.active ? '#2563eb' : '#3b82f6'} style={{ opacity: entry.active ? 1 : 0.6 }} className="hover:opacity-100 transition-opacity cursor-pointer shadow-lg" />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 </div>
