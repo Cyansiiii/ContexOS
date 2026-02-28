@@ -17,16 +17,21 @@ export const BorderBeam = ({
 }) => {
   return (
     <div
-      className="pointer-events-none absolute inset-0 rounded-[inherit] border-(length:--border-beam-width) border-transparent mask-[linear-gradient(transparent,transparent),linear-gradient(#000,#000)] mask-intersect [mask-clip:padding-box,border-box]"
-      style={
-        {
-          "--border-beam-width": `${borderWidth}px`
-        }
-      }>
+      className="pointer-events-none absolute inset-0 rounded-[inherit] border-transparent"
+      style={{
+        borderWidth: borderWidth,
+        borderStyle: "solid",
+        maskImage: "linear-gradient(#fff 0 0), linear-gradient(#fff 0 0)",
+        WebkitMaskImage: "linear-gradient(#fff 0 0), linear-gradient(#fff 0 0)",
+        maskClip: "padding-box, border-box",
+        WebkitMaskClip: "padding-box, border-box",
+        maskComposite: "exclude",
+        WebkitMaskComposite: "xor",
+      }}>
       <motion.div
         className={cn(
           "absolute aspect-square",
-          "bg-linear-to-l from-(--color-from) via-(--color-to) to-transparent",
+          "bg-gradient-to-l from-[var(--color-from)] via-[var(--color-to)] to-transparent",
           className
         )}
         style={
