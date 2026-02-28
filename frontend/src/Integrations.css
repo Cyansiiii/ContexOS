@@ -23,6 +23,11 @@
   margin-bottom: 20px;
 }
 
+.dark .section-label {
+  background: rgba(124, 58, 237, 0.2);
+  color: #a855f7;
+}
+
 .section-title {
   font-size: clamp(32px, 5vw, 52px);
   font-weight: 800;
@@ -49,6 +54,10 @@
   max-width: 480px;
   margin: 0 auto 64px;
   line-height: 1.6;
+}
+
+.dark .section-sub {
+  color: #9ca3af;
 }
 
 .orbit-stage {
@@ -392,6 +401,10 @@
   font-size: 12px;
   color: #6b7280;
   font-weight: 500;
+}
+
+.dark .feed-label {
+  color: #9ca3af;
 }
 
 .feed-pill {

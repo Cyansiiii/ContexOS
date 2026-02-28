@@ -49,7 +49,7 @@ export default function Integrations() {
   }, []);
 
   return (
-    <div className="relative w-full z-20 overflow-hidden bg-slate-50 flex flex-col items-center justify-center">
+    <div className="relative w-full z-20 overflow-hidden bg-slate-50 dark:bg-[#09090b] flex flex-col items-center justify-center">
       {/* FULL WIDTH CURVED LOOP BG */}
       <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-[120vw] min-w-[1400px] z-0 flex items-center justify-center pointer-events-none overflow-visible opacity-[0.25]">
         <CurvedLoop
