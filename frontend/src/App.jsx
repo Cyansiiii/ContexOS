@@ -104,15 +104,18 @@ function App() {
             <div className="hidden lg:flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-full border border-slate-200/50 dark:border-slate-700/50">
               <InteractiveHoverButton
                 onClick={() => setActiveTab('dashboard')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all border-none ${activeTab === 'dashboard' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                data-active={activeTab === 'dashboard'}
+                className="px-6 py-2 border-none bg-transparent hover:bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               >Dashboard</InteractiveHoverButton>
               <InteractiveHoverButton
                 onClick={() => setActiveTab('search')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all border-none ${activeTab === 'search' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                data-active={activeTab === 'search'}
+                className="px-6 py-2 border-none bg-transparent hover:bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               >Tasks & Search</InteractiveHoverButton>
               <InteractiveHoverButton
                 onClick={() => setActiveTab('upload')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all border-none ${activeTab === 'upload' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                data-active={activeTab === 'upload'}
+                className="px-6 py-2 border-none bg-transparent hover:bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               >Analytics</InteractiveHoverButton>
             </div>
           </div>
