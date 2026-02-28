@@ -6,6 +6,7 @@ import CurvedLoop from './components/core/CurvedLoop'
 import { LineShadowText } from './components/core/line-shadow-text'
 import { AnimatedListDemo } from './components/core/AnimatedListDemo'
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
+import { BorderBeam } from "@/components/ui/border-beam"
 import {
   Search, Database, MessageSquare, BrainCircuit,
   Activity, UploadCloud, Zap,
@@ -203,7 +204,8 @@ function App() {
               {/* AI ANSWER REGION */}
               {answer && (
                 <div className="max-w-3xl mx-auto mb-20 animate-slide-up">
-                  <div className="glass-card rounded-[2rem] p-8 text-left relative overflow-hidden">
+                  <div className="glass-card rounded-[2rem] p-8 text-left relative overflow-hidden group">
+                    <BorderBeam duration={8} size={300} reverse className="from-transparent via-purple-500 to-transparent" />
                     {/* Glowing corner effect */}
                     <div className="absolute -top-20 -right-20 w-48 h-48 bg-purple-500/20 blur-3xl rounded-full"></div>
 
@@ -282,8 +284,9 @@ function App() {
               <p className="text-lg text-slate-600 dark:text-slate-400">Connect your tools or paste directly to train the AI instantly.</p>
             </div>
 
-            <div className="glass-card rounded-[2rem] p-8 md:p-12">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-slate-100 pb-8 mb-8">
+            <div className="glass-card rounded-[2rem] p-8 md:p-12 relative overflow-hidden group">
+              <BorderBeam duration={8} size={300} reverse className="from-transparent via-blue-500 to-transparent" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-slate-100 pb-8 mb-8 relative z-10">
                 {[
                   { id: 'document', icon: <Files className="w-5 h-5" />, label: "Document" },
                   { id: 'email', icon: <MessageSquare className="w-5 h-5" />, label: "Email" },
@@ -348,7 +351,8 @@ function App() {
               {/* LEFT COLUMN */}
               <div className="lg:col-span-1 flex flex-col gap-6">
                 {/* Working Hours */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7">
+                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                  <BorderBeam duration={8} size={200} className="from-transparent via-amber-500 to-transparent" />
                   <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4">Today&apos;s working hours</h3>
                   <div className="flex items-baseline gap-2 mb-6 border-b border-dashed border-slate-200 dark:border-slate-700 pb-5">
                     <Clock className="w-5 h-5 text-amber-700 dark:text-amber-500" />
@@ -373,7 +377,8 @@ function App() {
                 </div>
 
                 {/* Meeting Card */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7">
+                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                  <BorderBeam duration={8} size={200} className="from-transparent via-blue-500 to-transparent" />
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">
                     <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
                     In 30 minutes
@@ -416,8 +421,9 @@ function App() {
               <div className="lg:col-span-2 flex flex-col gap-6">
 
                 {/* Activity Graph Card */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-8 relative">
-                  <div className="flex justify-between items-start mb-8">
+                <div className="glass-card rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group">
+                  <BorderBeam duration={8} size={350} reverse className="from-transparent via-emerald-500 to-transparent" />
+                  <div className="flex justify-between items-start mb-8 relative z-10">
                     <div>
                       <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Activity</h2>
                       <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs font-medium leading-relaxed">You logged <span className="font-bold text-slate-700 dark:text-slate-300">32.2 hours</span> this week — up <span className="font-bold text-slate-700 dark:text-slate-300">4.3 hours</span> from last month.</p>
@@ -478,8 +484,9 @@ function App() {
                 </div>
 
                 {/* Today's Tasks Blocks */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-8">
-                  <div className="flex justify-between items-center mb-6">
+                <div className="glass-card rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group">
+                  <BorderBeam duration={10} size={300} className="from-transparent via-indigo-500 to-transparent" />
+                  <div className="flex justify-between items-center mb-6 relative z-10">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">Today&apos;s tasks</h2>
                     <a href="#" className="text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">View all</a>
                   </div>
@@ -576,8 +583,9 @@ function App() {
               <div className="lg:col-span-1 flex flex-col gap-6">
 
                 {/* Statistics Gauge Card */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden">
-                  <div className="flex justify-between items-center mb-8">
+                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                  <BorderBeam duration={8} size={250} className="from-transparent via-pink-500 to-transparent" />
+                  <div className="flex justify-between items-center mb-8 relative z-10">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Statistics</h3>
                     <button className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                       <ArrowUpRight className="w-4 h-4 text-slate-500 dark:text-slate-400" />
@@ -631,8 +639,9 @@ function App() {
                 </div>
 
                 {/* By Project List */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7">
-                  <div className="flex justify-between items-center mb-6">
+                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                  <BorderBeam duration={8} size={250} reverse className="from-transparent via-purple-500 to-transparent" />
+                  <div className="flex justify-between items-center mb-6 relative z-10">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">By project</h3>
                     <button className="bg-[#212121] dark:bg-[#33353c] hover:bg-black dark:hover:bg-[#44464d] text-white px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1">
                       <Plus className="w-3 h-3" /> New

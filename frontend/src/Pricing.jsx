@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BorderBeam } from "@/components/ui/border-beam"
 import './Pricing.css';
 
 export default function Pricing() {
@@ -105,11 +106,12 @@ export default function Pricing() {
 
                 {/* STARTER */}
                 <motion.div
-                    className="plan-card starter-card"
+                    className="plan-card starter-card group overflow-hidden"
                     variants={cardVariants}
                     whileHover="hover"
                     {...normalCardHover}
                 >
+                    <BorderBeam duration={8} size={200} className="from-transparent via-emerald-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="plan-icon starter">🌱</div>
                     <div className="plan-name">Starter</div>
                     <div className="plan-desc">Perfect for freelancers and solo founders capturing personal work knowledge.</div>
@@ -176,10 +178,11 @@ export default function Pricing() {
 
                 {/* GROWTH (POPULAR) */}
                 <motion.div
-                    className="plan-card popular"
+                    className="plan-card popular group overflow-hidden"
                     variants={popularCardVariants}
                     whileHover="hover"
                 >
+                    <BorderBeam duration={8} size={300} reverse className="from-transparent via-purple-500 to-transparent" />
                     <div className="plan-badge">⚡ Most Popular</div>
                     <div className="plan-icon growth">🧠</div>
                     <div className="plan-name">Growth</div>
@@ -248,11 +251,12 @@ export default function Pricing() {
 
                 {/* ENTERPRISE */}
                 <motion.div
-                    className="plan-card enterprise-card"
+                    className="plan-card enterprise-card group overflow-hidden"
                     variants={cardVariants}
                     whileHover="hover"
                     {...normalCardHover}
                 >
+                    <BorderBeam duration={8} size={200} className="from-transparent via-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="plan-icon enterprise">🏢</div>
                     <div className="plan-name">Enterprise</div>
                     <div className="plan-desc">For large organisations needing total control, custom SLAs, and hardware bundles.</div>
