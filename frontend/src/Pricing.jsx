@@ -79,10 +79,7 @@ export default function Pricing() {
                     <svg width="8" height="8" viewBox="0 0 8 8" className="mr-1.5"><circle cx="4" cy="4" r="4" fill="#7c3aed" /></svg>
                     Pricing
                 </div>
-                <h2 className="pricing-title leading-tight flex flex-col items-center gap-2 mb-4">
-                    <ScrollMarkerReveal delay={0} markerColor="bg-sky-200 dark:bg-sky-600/40">Simple pricing.</ScrollMarkerReveal>
-                    <ScrollMarkerReveal delay={0.2} markerColor="bg-fuchsia-200 dark:bg-fuchsia-600/40"><em>Powerful memory.</em></ScrollMarkerReveal>
-                </h2>
+                <h2 className="pricing-title">Simple pricing.<br /><em>Powerful memory.</em></h2>
                 <p className="pricing-sub leading-loose flex flex-wrap justify-center gap-x-1.5 gap-y-2 mt-4">
                     <ScrollMarkerReveal delay={0.4} markerColor="bg-emerald-200 dark:bg-emerald-600/40">Start free, scale as your company&apos;s knowledge grows.</ScrollMarkerReveal>
                     <ScrollMarkerReveal delay={0.6} markerColor="bg-indigo-200 dark:bg-indigo-600/40">Every plan runs 100% on-device — no cloud bills, ever.</ScrollMarkerReveal>
