@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import Lenis from 'lenis'
 import Integrations from './Integrations'
 import Pricing from './Pricing'
 import CurvedLoop from './components/core/CurvedLoop'
@@ -35,6 +36,17 @@ function App() {
   const [statKey, setStatKey] = useState(0)
   // Trigger re-animation when tab changes
   useEffect(() => { setStatKey(k => k + 1) }, [activityPeriod, activeTab])
+
+  // Initialize smooth scrolling with Lenis
+  useEffect(() => {
+    const lenis = new Lenis({
+      autoRaf: true,
+    });
+
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
   // To force replace  = useState('search') // 'search', 'upload', 'dashboard'
 
   const [uploadContent, setUploadContent] = useState('')
