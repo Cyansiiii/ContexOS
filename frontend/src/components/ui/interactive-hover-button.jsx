@@ -1,5 +1,4 @@
-import { ArrowRight } from "lucide-react"
-
+import React from "react"
 import { cn } from "@/lib/utils"
 
 export function InteractiveHoverButton({
@@ -10,22 +9,17 @@ export function InteractiveHoverButton({
   return (
     <button
       className={cn(
-        "group bg-background relative w-auto cursor-pointer overflow-hidden rounded-full border p-2 px-6 text-center font-semibold",
+        "group relative w-auto cursor-pointer overflow-hidden rounded-full px-6 py-2 text-center font-semibold transition-all duration-300",
         className
       )}
       {...props}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative z-10">
         <div
-          className="bg-primary h-2 w-2 rounded-full transition-all duration-300 group-hover:scale-[100.8] group-data-[active=true]:scale-[100.8]"></div>
+          className="bg-[#212121] dark:bg-white h-2 w-2 rounded-full transition-transform duration-500 group-hover:scale-[100] group-data-[active=true]:scale-[100] origin-center relative z-0"></div>
         <span
-          className="inline-block transition-all duration-300 group-hover:translate-x-12 group-hover:opacity-0 group-data-[active=true]:translate-x-12 group-data-[active=true]:opacity-0">
+          className="relative z-10 inline-block transition-colors duration-300 group-hover:text-white dark:group-hover:text-[#212121] group-data-[active=true]:text-white dark:group-data-[active=true]:text-[#212121]">
           {children}
         </span>
-      </div>
-      <div
-        className="text-primary-foreground absolute top-0 z-10 flex h-full w-full translate-x-12 items-center justify-center gap-2 opacity-0 transition-all duration-300 group-hover:-translate-x-5 group-hover:opacity-100 group-data-[active=true]:-translate-x-5 group-data-[active=true]:opacity-100">
-        <span>{children}</span>
-        <ArrowRight />
       </div>
     </button>
   );
