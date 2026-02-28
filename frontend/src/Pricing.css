@@ -7,6 +7,10 @@
     z-index: 10;
 }
 
+.dark .pricing-section {
+    background: #09090b;
+}
+
 /* ── TOGGLE ── */
 .toggle-wrap {
     display: flex;
@@ -27,6 +31,14 @@
 .toggle-label.active {
     color: #0f0a1a;
     font-weight: 600;
+}
+
+.dark .toggle-label {
+    color: #9ca3af;
+}
+
+.dark .toggle-label.active {
+    color: #f3f4f6;
 }
 
 .toggle-switch {
@@ -99,6 +111,10 @@
     margin-bottom: 16px;
 }
 
+.dark .pricing-title {
+    color: #f9fafb;
+}
+
 .pricing-title em {
     font-style: normal;
     background: linear-gradient(135deg, #7c3aed, #a855f7 60%, #06b6d4);
@@ -150,6 +166,11 @@
     border-radius: 24px;
     background: linear-gradient(135deg, transparent 60%, rgba(124, 58, 237, 0.04));
     pointer-events: none;
+}
+
+.dark .plan-card {
+    background: #111318;
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* POPULAR card */
@@ -236,6 +257,10 @@
     margin-bottom: 6px;
 }
 
+.dark .plan-name {
+    color: #f9fafb;
+}
+
 .popular .plan-name {
     color: white;
 }
@@ -265,6 +290,10 @@
     display: flex;
     align-items: flex-start;
     gap: 2px;
+}
+
+.dark .price-amount {
+    color: #f9fafb;
 }
 
 .popular .price-amount {
@@ -333,6 +362,10 @@
     font-size: 13.5px;
     color: #374151;
     line-height: 1.4;
+}
+
+.dark .features-list li {
+    color: #9ca3af;
 }
 
 .popular .features-list li {
@@ -498,6 +531,12 @@
     border-radius: 20px;
     border: 1.5px solid rgba(0, 0, 0, 0.06);
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+}
+
+.dark .bottom-strip {
+    background: #111318;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
 }
 
 .trust-item {

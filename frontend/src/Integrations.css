@@ -31,8 +31,16 @@
   margin-bottom: 14px;
 }
 
+.dark .section-title {
+  color: #f9fafb;
+}
+
 .section-title span {
   color: #7c3aed;
+}
+
+.dark .section-title span {
+  color: #a855f7;
 }
 
 .section-sub {
@@ -136,6 +144,12 @@
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   transform-origin: center;
+}
+
+.dark .app-card {
+  background: #1e2025;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .app-card:hover {
@@ -393,6 +407,12 @@
   color: #1a1a2e;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   animation: feed-pop 0.5s ease both;
+}
+
+.dark .feed-pill {
+  background: #1e2025;
+  color: #f9fafb;
+  border-color: rgba(168, 85, 247, 0.3);
 }
 
 .feed-pill:nth-child(2) {
