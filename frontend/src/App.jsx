@@ -12,7 +12,7 @@ import {
   Search, Database, MessageSquare, BrainCircuit,
   Activity, UploadCloud, Zap,
   CheckCircle2, ShieldCheck, Sparkles, Files, Briefcase,
-  Bell, Clock, ArrowUpRight, Plus, MoreHorizontal, Video, FileText, CheckCircle
+  Bell, Clock, ArrowUpRight, Plus, MoreHorizontal, Video, FileText, CheckCircle, Github
 } from 'lucide-react'
 
 // MOCK DATA for floating bubbles to simulate Guru homepage
@@ -124,6 +124,9 @@ function App() {
               <Bell className="w-5 h-5" />
               <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white"></div>
             </button>
+            <a href="https://github.com/Cyansiiii/ContexOS" target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400">
+              <Github className="w-5 h-5" />
+            </a>
             <AnimatedThemeToggler className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400 focus:outline-none" />
             <div className="h-10 pl-3 flex items-center gap-3 border-l border-slate-200 dark:border-slate-800 ml-2 cursor-pointer">
               <div className="w-9 h-9 rounded-full bg-blue-600 overflow-hidden text-white flex items-center justify-center font-bold">
