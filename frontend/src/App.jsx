@@ -63,7 +63,7 @@ function App() {
     setAnswer('')
     try {
       const response = await axios.post(
-        'http://localhost:8000/ask',
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/ask`,
         { question: question }
       )
       setAnswer(response.data.answer)
@@ -80,7 +80,7 @@ function App() {
     setUploading(true);
     setUploadMessage('');
     try {
-      await axios.post('http://localhost:8000/upload', {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/upload`, {
         content: uploadContent,
         source: uploadSource,
         date: new Date().toISOString()
