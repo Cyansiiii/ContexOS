@@ -1,13 +1,15 @@
 from fastapi import FastAPI, UploadFile, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from ai_engine import store_memory, search_memory, get_db_stats, vectorstore, llm
+from ai_engine import store_memory, search_memory, get_db_stats, vectorstore, llm, DB_DIR
+from error_handlers import make_error
 from pydantic import BaseModel
 from typing import Optional, List
 import json
 import platform
 import time
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -99,12 +101,8 @@ async def upload_document(req: UploadRequest):
 @app.post("/ask")
 async def ask_question(req: AskRequest):
     if vectorstore is None or llm is None:
-        return {
-            "answer": "ContextOS is not ready. Please ensure Ollama is running.",
-            "sources": [],
-            "confidence": "Low",
-            "chunks_searched": 0,
-        }
+        err = make_error("OLLAMA_OFFLINE")
+        return {**err, "answer": err["user_message"], "sources": [], "confidence": "Low", "chunks_searched": 0}
 
     start_time = time.time()
 
@@ -113,21 +111,28 @@ async def ask_question(req: AskRequest):
         scored_results = vectorstore.similarity_search_with_relevance_scores(
             req.question, k=5
         )
-    except Exception:
-        # Fallback if similarity_search_with_relevance_scores is not available
+    except Exception as e:
+        error_str = str(e).lower()
+        if "connection" in error_str or "refused" in error_str:
+            err = make_error("OLLAMA_OFFLINE")
+            return {**err, "answer": err["user_message"], "sources": [], "confidence": "Low", "chunks_searched": 0}
+        # Fallback
         scored_results = []
         try:
             docs = vectorstore.similarity_search(req.question, k=5)
-            scored_results = [(doc, 0.75) for doc in docs]  # default medium confidence
+            scored_results = [(doc, 0.75) for doc in docs]
         except Exception:
-            pass
+            err = make_error("EMBEDDING_FAILED", str(e))
+            return {**err, "answer": err["user_message"], "sources": [], "confidence": "Low", "chunks_searched": 0}
 
     if not scored_results:
+        total = get_db_stats()
+        if total == 0:
+            err = make_error("CHROMADB_EMPTY")
+            return {**err, "answer": err["user_message"], "sources": [], "confidence": "Low", "chunks_searched": 0}
         return {
-            "answer": "No relevant memories found. Try adding some documents first.",
-            "sources": [],
-            "confidence": "Low",
-            "chunks_searched": 0,
+            "answer": "No relevant memories found for this query. Try different keywords.",
+            "sources": [], "confidence": "Low", "chunks_searched": total,
         }
 
     # Extract docs and scores
@@ -138,22 +143,21 @@ async def ask_question(req: AskRequest):
     context = "\n".join([doc.page_content for doc in relevant_docs])
 
     # Ask LLM
-    prompt = f"""
-    You are ContextOS, a company memory assistant.
-    Based on this company data: {context}
-    Answer this question: {req.question}
-    Give specific details about decisions, people involved, and dates.
-    """
-    answer = llm.invoke(prompt)
-
-    # Track query history
-    query_history.insert(0, {
-        "q": req.question,
-        "time": "Just now",
-        "author": "User"
-    })
-    if len(query_history) > 10:
-        query_history.pop()
+    try:
+        prompt = f"""
+        You are ContextOS, a company memory assistant.
+        Based on this company data: {context}
+        Answer this question: {req.question}
+        Give specific details about decisions, people involved, and dates.
+        """
+        answer = llm.invoke(prompt)
+    except Exception as e:
+        error_str = str(e).lower()
+        if "connection" in error_str or "refused" in error_str:
+            err = make_error("OLLAMA_OFFLINE")
+            return {**err, "answer": err["user_message"], "sources": [], "confidence": "Low", "chunks_searched": 0}
+        err = make_error("EMBEDDING_FAILED", str(e))
+        return {**err, "answer": err["user_message"], "sources": [], "confidence": "Low", "chunks_searched": 0}
 
     # F-09: Build deduplicated source chips
     seen_sources = set()
@@ -173,19 +177,26 @@ async def ask_question(req: AskRequest):
             "excerpt": doc.page_content[:120] + "..." if len(doc.page_content) > 120 else doc.page_content,
         })
 
-    # Confidence logic based on top score
+    # Confidence logic
     top_score = scores[0] if scores else 0
-    if top_score > 0.80:
-        confidence = "High"
-    elif top_score > 0.65:
-        confidence = "Medium"
-    else:
-        confidence = "Low"
+    confidence = "High" if top_score > 0.80 else "Medium" if top_score > 0.65 else "Low"
 
-    # Total chunks in DB
     chunks_searched = get_db_stats()
-
     elapsed = round(time.time() - start_time, 2)
+    elapsed_ms = int(elapsed * 1000)
+
+    # F-13: Track query history (max 50)
+    source_names = [s["source_name"] for s in source_chips[:3]]
+    query_history.insert(0, {
+        "query": req.question,
+        "answer_preview": (answer[:120] + "...") if len(answer) > 120 else answer,
+        "confidence": confidence,
+        "sources": source_names,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "response_time_ms": elapsed_ms,
+    })
+    if len(query_history) > 50:
+        query_history.pop()
 
     return {
         "answer": answer,
@@ -198,13 +209,59 @@ async def ask_question(req: AskRequest):
 
 @app.get("/stats")
 def get_stats():
+    total = get_db_stats()
+
+    # F-14: breakdown by source_type
+    memories_by_type = {"document": 0, "email": 0, "meeting_notes": 0, "decision": 0, "slack": 0}
+    last_ingested = None
+    try:
+        if vectorstore is not None:
+            all_data = vectorstore.get(include=["metadatas"])
+            if all_data and "metadatas" in all_data:
+                for meta in all_data["metadatas"]:
+                    st = (meta or {}).get("source_type", "document")
+                    if st in memories_by_type:
+                        memories_by_type[st] += 1
+                    else:
+                        memories_by_type["document"] += 1
+                    d = (meta or {}).get("date", "")
+                    if d and (last_ingested is None or d > last_ingested):
+                        last_ingested = d
+    except Exception:
+        pass
+
+    # ChromaDB dir size
+    chromadb_size_mb = 0.0
+    try:
+        for dirpath, dirnames, filenames in os.walk(DB_DIR):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                chromadb_size_mb += os.path.getsize(fp)
+        chromadb_size_mb = round(chromadb_size_mb / (1024 * 1024), 1)
+    except Exception:
+        pass
+
     return {
-        "total_memories": get_db_stats(),
+        "total_memories": total,
+        "memories_by_type": memories_by_type,
+        "total_chunks": total,
+        "last_ingested": last_ingested,
+        "chromadb_size_mb": chromadb_size_mb,
+        "collection_name": "company_knowledge_base",
         "model": "Phi-3 Mini (Local CPU/NPU)",
         "status": "operational",
         "cloud_calls": 0,
-        "recent_activity": query_history
     }
+
+
+# ═══════════════════════════════════════════
+# F-13: QUERY HISTORY ENDPOINT
+# ═══════════════════════════════════════════
+
+@app.get("/history")
+def get_history():
+    """Return last 20 queries, newest first."""
+    return {"history": query_history[:20]}
 
 @app.get("/amd-status")
 def amd_status():

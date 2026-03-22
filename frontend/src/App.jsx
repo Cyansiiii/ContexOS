@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import Lenis from 'lenis'
 import Integrations from './Integrations'
@@ -12,12 +12,13 @@ import { ScrollMarkerReveal } from "./components/ui/scroll-marker-reveal"
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import {
   Search, Database, MessageSquare, BrainCircuit,
-  Activity, UploadCloud, Zap,
+  Activity, UploadCloud, Zap, Menu, X,
   CheckCircle2, ShieldCheck, Sparkles, Files, Briefcase,
   Bell, Clock, ArrowUpRight, Plus, MoreHorizontal, Video, FileText, CheckCircle, Github
 } from 'lucide-react'
 import GmailCard from './components/GmailCard'
 import AmdStatusCard from './components/AmdStatusCard'
+import ErrorCard from './components/ErrorCard'
 
 // MOCK DATA for floating bubbles to simulate Guru homepage
 const FLOATING_CHATS = [
@@ -73,17 +74,83 @@ function App() {
   // F-08: Demo scenarios
   const [demoScenariosOpen, setDemoScenariosOpen] = useState(false)
 
+  // F-15: Global error state
+  const [errorData, setErrorData] = useState(null)
+
+  // F-17: Thinking state
+  const [isThinking, setIsThinking] = useState(false)
+  const inputRef = useRef(null)
+
+  // F-14: Live stats
+  const [liveStats, setLiveStats] = useState(null)
+  const [displayCount, setDisplayCount] = useState(0)
+
+  // F-13: Query history
+  const [queryHistory, setQueryHistory] = useState([])
+
+  // F-16: Mobile menu
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // F-14: Poll /stats every 30s
+  useEffect(() => {
+    const fetchStats = () => {
+      axios.get(`${API}/stats`).then(({ data }) => setLiveStats(data)).catch(() => {})
+    }
+    fetchStats()
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
+  }, [API])
+
+  // F-14: Count-up animation
+  useEffect(() => {
+    if (!liveStats?.total_memories) return
+    const target = liveStats.total_memories
+    const start = performance.now()
+    const duration = 800
+    const animate = (now) => {
+      const elapsed = now - start
+      const progress = Math.min(elapsed / duration, 1)
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplayCount(Math.round(eased * target))
+      if (progress < 1) requestAnimationFrame(animate)
+    }
+    requestAnimationFrame(animate)
+  }, [liveStats?.total_memories])
+
+  // F-13: Poll /history every 10s
+  useEffect(() => {
+    const fetchHistory = () => {
+      axios.get(`${API}/history`).then(({ data }) => setQueryHistory(data.history || [])).catch(() => {})
+    }
+    fetchHistory()
+    const interval = setInterval(fetchHistory, 10000)
+    return () => clearInterval(interval)
+  }, [API])
+
+  // F-13: Relative time helper
+  const relativeTime = useCallback((isoStr) => {
+    if (!isoStr) return ''
+    const diff = (Date.now() - new Date(isoStr).getTime()) / 1000
+    if (diff < 60) return 'Just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) > 1 ? 's' : ''} ago`
+    return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) > 1 ? 's' : ''} ago`
+  }, [])
+
 
   // ── F-09: Enhanced Ask with source chips + confidence ──
   const askQuestion = async () => {
     if (!question.trim()) return;
     setLoading(true)
+    setIsThinking(true)
     setAnswer('')
     setSources([])
     setConfidence('')
     setChunksSearched(0)
     setResponseTime(null)
     setExpertResult(null)
+    setErrorData(null)
 
     const t0 = performance.now()
 
@@ -91,26 +158,40 @@ function App() {
       const response = await axios.post(`${API}/ask`, { question })
       const elapsed = ((performance.now() - t0) / 1000).toFixed(1)
 
-      setAnswer(response.data.answer)
+      // F-15: Check for structured error in response
+      if (response.data.error) {
+        setErrorData(response.data)
+        setAnswer('')
+      } else {
+        setAnswer(response.data.answer)
+      }
       setSources(response.data.sources || [])
       setConfidence(response.data.confidence || '')
       setChunksSearched(response.data.chunks_searched || 0)
       setResponseTime(elapsed)
     } catch (error) {
       console.error(error)
-      setAnswer('Error reaching ContextOS API. Check if backend is running.')
+      setErrorData({
+        error: true,
+        error_code: 'OLLAMA_OFFLINE',
+        user_message: 'Cannot reach ContextOS backend. Is it running?',
+        recovery_action: 'start_ollama'
+      })
     }
+    setIsThinking(false)
     setLoading(false)
+    setTimeout(() => inputRef.current?.focus(), 100)
   }
 
 
-  // ── F-07: Expert Finder search ──
   const handleExpertSearch = async () => {
     if (!question.trim()) return;
     setLoading(true)
+    setIsThinking(true)
     setExpertResult(null)
     setAnswer('')
     setSources([])
+    setErrorData(null)
 
     try {
       const { data } = await axios.get(`${API}/memory/expert`, {
@@ -119,8 +200,9 @@ function App() {
       setExpertResult(data)
     } catch (error) {
       console.error(error)
-      setExpertResult({ experts: [], answer: 'Error reaching ContextOS API.' })
+      setErrorData({ error: true, error_code: 'OLLAMA_OFFLINE', user_message: 'Cannot reach ContextOS backend.', recovery_action: 'start_ollama' })
     }
+    setIsThinking(false)
     setLoading(false)
   }
 
@@ -216,8 +298,13 @@ function App() {
   const setupOnboarding = async () => {
     try {
       await axios.post(`${API}/demo/setup-onboarding`)
-      alert('✅ Onboarding Co-pilot ready — 3 memories added')
-    } catch { alert('Failed to set up onboarding data.') }
+      setErrorData(null)
+      // Show success briefly
+      setUploadMessage('✅ Onboarding Co-pilot ready — 3 memories added')
+      setTimeout(() => setUploadMessage(''), 4000)
+    } catch {
+      setErrorData({ error: true, error_code: 'OLLAMA_OFFLINE', user_message: 'Failed to set up onboarding data. Is Ollama running?', recovery_action: 'start_ollama' })
+    }
   }
 
 
@@ -234,52 +321,57 @@ function App() {
 
       {/* FIXED NAVBAR */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300 py-3">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          {/* --- NEW HEADER (Dribbble matching) --- */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <div className="flex-1 flex justify-start items-center">
-            <div className="flex items-center gap-2 cursor-pointer mr-12" onClick={() => setActiveTab('search')}>
-              <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-['Outfit']">ContextOS</span>
+            {/* F-16: Hamburger for mobile */}
+            <button className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 mr-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+            <div className="flex items-center gap-2 cursor-pointer mr-6 lg:mr-12" onClick={() => { setActiveTab('search'); setMobileMenuOpen(false) }}>
+              <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-['Outfit']">ContextOS</span>
             </div>
 
             <div className="hidden lg:flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-full border border-slate-200/50 dark:border-slate-700/50">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'dashboard' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
-              >Dashboard</button>
-              <button
-                onClick={() => setActiveTab('search')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'search' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
-              >Tasks & Search</button>
-              <button
-                onClick={() => setActiveTab('upload')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'upload' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
-              >Analytics</button>
+              <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'dashboard' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>Dashboard</button>
+              <button onClick={() => setActiveTab('search')} className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'search' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>Tasks & Search</button>
+              <button onClick={() => setActiveTab('upload')} className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${activeTab === 'upload' ? 'bg-[#212121] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>Analytics</button>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 flex-1">
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500">
+          <div className="flex items-center justify-end gap-2 sm:gap-3 flex-1">
+            <button className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500">
               <Search className="w-5 h-5" />
             </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 relative">
+            <button className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 relative">
               <Bell className="w-5 h-5" />
               <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white"></div>
             </button>
-            <a href="https://github.com/Cyansiiii/ContexOS" target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400">
+            <a href="https://github.com/Cyansiiii/ContexOS" target="_blank" rel="noopener noreferrer" className="hidden md:flex w-10 h-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400">
               <Github className="w-5 h-5" />
             </a>
             <AnimatedThemeToggler className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400 focus:outline-none" />
-            <div className="h-10 pl-3 flex items-center gap-3 border-l border-slate-200 dark:border-slate-800 ml-2 cursor-pointer">
-              <div className="w-9 h-9 rounded-full bg-blue-600 overflow-hidden text-white flex items-center justify-center font-bold">
-                C
-              </div>
-              <div className="hidden sm:block text-left">
+            <div className="h-10 pl-2 sm:pl-3 flex items-center gap-2 sm:gap-3 border-l border-slate-200 dark:border-slate-800 ml-1 sm:ml-2 cursor-pointer">
+              <div className="w-9 h-9 rounded-full bg-blue-600 overflow-hidden text-white flex items-center justify-center font-bold shrink-0">C</div>
+              <div className="hidden md:block text-left">
                 <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Anant Anandam</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">anant.anandam@gmail.com</p>
               </div>
             </div>
           </div>
         </div>
+        {/* F-16: Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden absolute top-full left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-700/50 shadow-xl animate-slide-up">
+            <div className="flex flex-col p-4 gap-2">
+              {['dashboard', 'search', 'upload'].map(tab => (
+                <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false) }}
+                  className={`w-full text-left px-5 py-3 rounded-xl text-sm font-semibold transition-all min-h-[44px] ${activeTab === tab ? 'bg-[#212121] text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                  {tab === 'dashboard' ? 'Dashboard' : tab === 'search' ? 'Tasks & Search' : 'Analytics'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* MAIN CONTENT AREA */}
@@ -346,7 +438,9 @@ function App() {
                       onChange={(e) => setQuestion(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && (searchMode === 'expert' ? handleExpertSearch() : askQuestion())}
                       placeholder={searchMode === 'expert' ? "Who knows about... (e.g. payment API)" : "Ask anything about your company's knowledge..."}
-                      className="w-full bg-transparent border-none outline-none text-slate-800 dark:text-slate-100 text-xl px-4 py-2 font-medium placeholder-slate-400 dark:placeholder-slate-500"
+                      className="w-full bg-transparent border-none outline-none text-slate-800 dark:text-slate-100 text-base sm:text-xl px-3 sm:px-4 py-2 font-medium placeholder-slate-400 dark:placeholder-slate-500"
+                      ref={inputRef}
+                      disabled={isThinking}
                     />
                     <button
                       onClick={searchMode === 'expert' ? handleExpertSearch : askQuestion}
@@ -416,6 +510,47 @@ function App() {
                   </div>
                 )}
               </div>
+
+              {/* F-17: THINKING CARD */}
+              {isThinking && (
+                <div className="max-w-3xl mx-auto mb-8 animate-slide-up">
+                  <div className="glass-card rounded-2xl p-6 text-left relative overflow-hidden border border-[#ED1C24]/10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-full bg-[#ED1C24]/10 flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-[#ED1C24] animate-pulse" />
+                      </div>
+                      <span className="text-sm font-bold text-slate-800 dark:text-white">ContextOS is thinking...</span>
+                    </div>
+                    {/* Animated progress bar */}
+                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4">
+                      <div className="h-full rounded-full bg-gradient-to-r from-[#ED1C24] to-[#6EE7C3] animate-thinking-bar" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium animate-fade-in" style={{animationDelay: '0ms'}}>
+                        {searchMode === 'expert' ? 'Scanning documents for expertise patterns...' : `Searching ${liveStats?.total_chunks || 'your knowledge base'} chunks locally`}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium animate-fade-in" style={{animationDelay: '200ms'}}>
+                        {searchMode === 'expert' ? 'Identifying knowledge owners...' : 'Mistral 7B generating answer...'}
+                      </p>
+                      <p className="text-xs font-bold text-[#ED1C24] animate-fade-in" style={{animationDelay: '400ms'}}>⚡ 0 external API calls</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* F-15: Error display */}
+              {errorData && !isThinking && (
+                <div className="max-w-3xl mx-auto mb-4">
+                  <ErrorCard
+                    error_code={errorData.error_code}
+                    user_message={errorData.user_message}
+                    recovery_action={errorData.recovery_action}
+                    onRetry={() => { setErrorData(null); searchMode === 'expert' ? handleExpertSearch() : askQuestion() }}
+                    onDismiss={() => setErrorData(null)}
+                    onNavigate={(tab) => { setErrorData(null); setActiveTab(tab) }}
+                  />
+                </div>
+              )}
 
               {/* F-07: EXPERT FINDER RESULTS */}
               {expertResult && (
@@ -981,74 +1116,122 @@ function App() {
               {/* RIGHT COLUMN */}
               <div className="lg:col-span-1 flex flex-col gap-6">
 
-                {/* Statistics Gauge Card */}
+                {/* F-14: Live Memory Stats Card */}
                 <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
-                  <BorderBeam duration={8} size={250} className="from-transparent via-pink-500 to-transparent" />
+                  <BorderBeam duration={8} size={250} className="from-transparent via-emerald-500 to-transparent" />
                   <div className="flex justify-between items-center mb-8 relative z-10">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Statistics</h3>
-                    <button className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                      <ArrowUpRight className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                    </button>
-                  </div>
-
-                  {/* Donut Gauge Wrapper */}
-                  <div className="relative w-48 h-24 mx-auto mb-10 overflow-hidden">
-                    <svg viewBox="0 0 100 50" className="gauge-svg absolute bottom-0" key={`gauge-${statKey}`}>
-                      <path d="M 10 50 A 40 40 0 0 1 90 50" className="gauge-track" />
-                      <path d="M 10 50 A 40 40 0 0 1 90 50" className="gauge-progress-green stroke-fill" style={{ "--stroke-percent": 51 }} />
-                      <path d="M 10 50 A 40 40 0 0 1 90 50" className="gauge-progress-yellow stroke-fill" style={{ "--stroke-percent": 17 }} />
-                      <path d="M 10 50 A 40 40 0 0 1 90 50" className="gauge-progress-pink stroke-fill" style={{ "--stroke-percent": 32 }} />
-                    </svg>
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center pb-2">
-                      <div className="text-4xl font-bold text-slate-900 dark:text-white tracking-tight leading-none mb-1">350</div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full inline-block">Tasks</div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Database className="w-4 h-4 text-emerald-500" /> Live Database
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Syncing</span>
                     </div>
                   </div>
 
-                  {/* Stats Bars */}
-                  <div className="space-y-5">
-                    <div>
-                      <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                        <span>Completed</span>
-                        <span>51%</span>
-                      </div>
-                      <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full w-[51%] stripe-green animate-progress origin-left duration-1000"></div>
-                      </div>
+                  {/* F-14: Total Animated Count */}
+                  <div className="relative mx-auto mb-10 text-center">
+                    <div className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tighter mb-2 font-['Outfit'] tabular-nums">
+                      {displayCount.toLocaleString()}
                     </div>
-                    <div>
-                      <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                        <span>In progress</span>
-                        <span>17%</span>
-                      </div>
-                      <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full w-[17%] stripe-orange animate-progress origin-left duration-1000 delay-150"></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                        <span>Upcoming</span>
-                        <span>32%</span>
-                      </div>
-                      <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full w-[32%] stripe-pink animate-progress origin-left duration-1000 delay-300"></div>
-                      </div>
-                    </div>
+                    <div className="text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-[0.2em]">Total Memories Indexed</div>
+                  </div>
+
+                  {/* F-14: Memory Breakdown */}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Memory Composition</h4>
+                    
+                    {liveStats?.memories_by_type ? Object.entries(liveStats.memories_by_type).map(([type, count], i) => {
+                      if (count === 0) return null;
+                      const percentage = Math.round((count / liveStats.total_memories) * 100);
+                      const colors = [
+                        'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-pink-500'
+                      ];
+                      const colorClass = colors[i % colors.length];
+                      
+                      return (
+                        <div key={type}>
+                          <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 capitalize">
+                            <span>{type.replace('_', ' ')}</span>
+                            <span>{percentage}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div className={`h-full ${colorClass} transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    }) : (
+                      <div className="text-center text-sm text-slate-500 py-4">Waiting for data...</div>
+                    )}
+                  </div>
+                  
+                  {/* Footer stats */}
+                  <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between text-[11px] font-medium text-slate-400">
+                    <span>{liveStats?.chromadb_size_mb || '0'} MB Database</span>
+                    <span>{liveStats?.total_chunks || '0'} Vector Chunks</span>
                   </div>
                 </div>
 
-                {/* By Project List */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                {/* F-13: Recent Activity (Query History) */}
+                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group flex-1 min-h-[400px]">
                   <BorderBeam duration={8} size={250} reverse className="from-transparent via-purple-500 to-transparent" />
                   <div className="flex justify-between items-center mb-6 relative z-10">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">By project</h3>
-                    <button className="bg-[#212121] dark:bg-[#33353c] hover:bg-black dark:hover:bg-[#44464d] text-white px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1">
-                      <Plus className="w-3 h-3" /> New
-                    </button>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-purple-500" /> Recent Activity
+                    </h3>
+                    {queryHistory.length > 0 && (
+                      <button onClick={() => setQueryHistory([])} className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-[#ED1C24] transition-colors">
+                        Clear all
+                      </button>
+                    )}
                   </div>
 
-                  <div className="w-full">
-                    <AnimatedListDemo className="h-[400px]" />
+                  <div className="w-full relative z-10 h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                    {queryHistory.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                        <MessageSquare className="w-8 h-8 text-slate-300 dark:text-slate-700 mb-3" />
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">No recent queries</p>
+                        <p className="text-xs text-slate-500">Ask a question to see it appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {queryHistory.map((item, i) => (
+                          <div key={i} className="p-4 rounded-xl bg-slate-50/50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-left group/item cursor-pointer">
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="text-sm font-bold text-slate-800 dark:text-white leading-snug break-words pr-4 line-clamp-2">
+                                "{item.query}"
+                              </h4>
+                              <span className="text-[10px] font-medium whitespace-nowrap text-slate-400 mt-0.5 block">{relativeTime(item.timestamp)}</span>
+                            </div>
+                            
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 line-clamp-2 leading-relaxed">
+                              {item.answer_preview}
+                            </p>
+                            
+                            <div className="flex items-center justify-between mt-auto">
+                              <div className="flex flex-wrap gap-1">
+                                {item.sources && item.sources.map((src, idx) => (
+                                  <span key={idx} className="bg-slate-200/50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-500 dark:text-slate-400 border border-slate-300/50 dark:border-slate-700 truncate max-w-[80px]">
+                                    {src}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {item.response_time_ms && (
+                                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-0.5">
+                                    <Zap className="w-2.5 h-2.5" /> {item.response_time_ms}ms
+                                  </span>
+                                )}
+                                <span className={`w-2 h-2 rounded-full ${item.confidence === 'High' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : item.confidence === 'Medium' ? 'bg-amber-500' : 'bg-[#ED1C24]'}`}></span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
