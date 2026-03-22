@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Gmail OAuth token — NEVER commit this
+gmail_token.json
+gmail_sync_meta.json
+
+# Logs
+uvicorn.log
+*.log
+
+# ChromaDB local persistence
+database/chroma_db/

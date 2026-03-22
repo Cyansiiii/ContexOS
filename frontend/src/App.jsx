@@ -16,6 +16,8 @@ import {
   CheckCircle2, ShieldCheck, Sparkles, Files, Briefcase,
   Bell, Clock, ArrowUpRight, Plus, MoreHorizontal, Video, FileText, CheckCircle, Github
 } from 'lucide-react'
+import GmailCard from './components/GmailCard'
+import AmdStatusCard from './components/AmdStatusCard'
 
 // MOCK DATA for floating bubbles to simulate Guru homepage
 const FLOATING_CHATS = [
@@ -316,6 +318,18 @@ function App() {
               <p className="text-lg text-slate-600 dark:text-slate-400">Connect your tools or paste directly to train the AI instantly.</p>
             </div>
 
+            {/* ── Connected Sources ────────────────────────── */}
+            <div className="mb-8">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#6EE7C3] shadow-[0_0_6px_#6EE7C3]" />
+                Connected Sources
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <GmailCard />
+                {/* Future: SlackCard, NotionCard, etc. */}
+              </div>
+            </div>
+
             <div className="glass-card rounded-[2rem] p-8 md:p-12 relative overflow-hidden group">
               <BorderBeam duration={8} size={300} reverse className="from-transparent via-blue-500 to-transparent" />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-slate-100 pb-8 mb-8 relative z-10">
@@ -378,6 +392,11 @@ function App() {
         {/* --- DASHBOARD VIEW --- */}
         {activeTab === 'dashboard' && (
           <div className="animate-slide-up max-w-[1400px] mx-auto mt-4 pb-12 px-6">
+            {/* AMD Status Card — full width, first element */}
+            <div className="mb-6">
+              <AmdStatusCard />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
               {/* LEFT COLUMN */}

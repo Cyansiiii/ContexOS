@@ -232,6 +232,23 @@
   animation: progressFill 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Gmail sync progress bar animation */
+@keyframes gmailProgress {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-gmail-progress {
+  animation: gmailProgress 1.8s ease-in-out infinite;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
