@@ -159,6 +159,19 @@ export default function GmailCard() {
     }
   }
 
+  // ─── Disconnect ─────────────────────────────────────────────────
+  const handleDisconnect = async () => {
+    try {
+      await axios.delete(`${API}/gmail/disconnect`)
+      setState(STATES.DISCONNECTED)
+      setLastSync(null)
+      setEmailCount(0)
+      showToast('success', 'Gmail disconnected')
+    } catch {
+      showToast('error', 'Failed to disconnect Gmail')
+    }
+  }
+
   const formatTime = (iso) => {
     if (!iso) return 'Never'
     try {
@@ -254,6 +267,18 @@ export default function GmailCard() {
               >
                 <RefreshCw className="h-4 w-4" />
                 Sync Now
+              </button>
+              <button
+                onClick={handleDisconnect}
+                className="
+                  w-full py-1.5 rounded-xl bg-transparent
+                  border border-transparent text-slate-400
+                  hover:text-[#ef4444] hover:border-[#ef4444]/15 hover:bg-[#ef4444]/5
+                  text-xs font-semibold
+                  transition-all duration-200
+                "
+              >
+                Disconnect
               </button>
             </div>
           )}

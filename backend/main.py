@@ -1234,5 +1234,19 @@ async def gmail_status():
     }
 
 
+@app.delete("/gmail/disconnect")
+async def gmail_disconnect():
+    """
+    Disconnects Gmail by deleting the local token.
+    """
+    token_path = os.path.join(os.path.dirname(__file__), "gmail_token.json")
+    if os.path.exists(token_path):
+        try:
+            os.remove(token_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete token: {str(e)}")
+    return {"disconnected": True}
+
+
 # Run the server
 # Command: uvicorn main:app --reload
