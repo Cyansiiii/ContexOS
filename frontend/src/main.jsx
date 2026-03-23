@@ -13,12 +13,12 @@ document.documentElement.classList.toggle('dark', shouldUseDark)
 function Root() {
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 1.05,
+      duration: 0.8,
       smoothWheel: true,
       smoothTouch: false,
-      wheelMultiplier: 0.92,
-      touchMultiplier: 1.1,
-      lerp: 0.085,
+      wheelMultiplier: 1.2,
+      touchMultiplier: 1.2,
+      lerp: 0.11,
       anchors: true,
       easing: (t) => 1 - Math.pow(1 - t, 3),
     })
