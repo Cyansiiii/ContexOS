@@ -1,26 +1,26 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import axios from 'axios'
-import Lenis from 'lenis'
-import Integrations from './Integrations'
-import Pricing from './Pricing'
-import CurvedLoop from './components/core/CurvedLoop'
-import { LineShadowText } from './components/core/line-shadow-text'
-import { AnimatedListDemo } from './components/core/AnimatedListDemo'
+import AuthPage from './AuthPage'
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import { BorderBeam } from "@/components/ui/border-beam"
-import { ScrollMarkerReveal } from "./components/ui/scroll-marker-reveal"
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import {
   Search, Database, MessageSquare, BrainCircuit,
   Activity, UploadCloud, Zap, Menu, X, Shield,
   CheckCircle2, ShieldCheck, Sparkles, Files, Briefcase,
-  Bell, Clock, ArrowUpRight, Plus, MoreHorizontal, Video, FileText, CheckCircle, Github
+  Bell, Clock, ArrowUpRight, Plus, MoreHorizontal, Video, FileText, CheckCircle, Github,
+  UserRound, Save, LogOut, ChevronDown, Mail, CalendarDays, CreditCard, BarChart3, Cpu
 } from 'lucide-react'
-import GmailCard from './components/GmailCard'
-import AmdStatusCard from './components/AmdStatusCard'
 import ErrorCard from './components/ErrorCard'
-import DPDPPage from './pages/DPDPPage'
-import SlackCard from './components/SlackCard'
+import { LineShadowText } from './components/core/line-shadow-text'
+
+const Integrations = lazy(() => import('./Integrations'))
+const Pricing = lazy(() => import('./Pricing'))
+const GmailCard = lazy(() => import('./components/GmailCard'))
+const SlackCard = lazy(() => import('./components/SlackCard'))
+const AmdStatusCard = lazy(() => import('./components/AmdStatusCard'))
+const DPDPPage = lazy(() => import('./pages/DPDPPage'))
+const CurvedLoop = lazy(() => import('./components/core/CurvedLoop'))
+const ActivityChart = lazy(() => import('./components/ActivityChart'))
 
 // MOCK DATA for floating bubbles to simulate Guru homepage
 const FLOATING_CHATS = [
@@ -34,6 +34,14 @@ const FLOATING_CHATS = [
 
 function App() {
   const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const storedUser = window.localStorage.getItem('contextos-user')
+      return storedUser ? JSON.parse(storedUser) : null
+    } catch {
+      return null
+    }
+  })
 
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
@@ -42,21 +50,19 @@ function App() {
   const [chunksSearched, setChunksSearched] = useState(0)
   const [responseTime, setResponseTime] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('search')
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('tab') === 'upload' ? 'upload' : 'search'
+  })
   const [activityPeriod, setActivityPeriod] = useState('Week')
   const [statKey, setStatKey] = useState(0)
   useEffect(() => { setStatKey(k => k + 1) }, [activityPeriod, activeTab])
-
-  // Initialize smooth scrolling with Lenis
-  useEffect(() => {
-    const lenis = new Lenis({ autoRaf: true });
-    return () => { lenis.destroy() };
-  }, []);
 
   // Upload state
   const [uploadContent, setUploadContent] = useState('')
   const [uploadSource, setUploadSource] = useState('document')
   const [uploading, setUploading] = useState(false)
+  const [onboardingRunning, setOnboardingRunning] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
 
   // F-07: Expert Finder mode
@@ -92,9 +98,26 @@ function App() {
 
   // F-20: Benchmarks
   const [benchmarks, setBenchmarks] = useState(null)
+  const [dashboardMeeting, setDashboardMeeting] = useState(null)
 
   // F-16: Mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [deferSearchSections, setDeferSearchSections] = useState(false)
+  const [deferHeroDecor, setDeferHeroDecor] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  const [profileSuccess, setProfileSuccess] = useState('')
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+  })
+  const profileMenuRef = useRef(null)
+  const avatarInputRef = useRef(null)
+  const hasMountedRef = useRef(false)
 
   // F-14: Poll /stats every 30s
   useEffect(() => {
@@ -142,6 +165,10 @@ function App() {
     fetchBenchmarks()
   }, [fetchBenchmarks])
 
+  useEffect(() => {
+    axios.get(`${API}/dashboard/meeting`).then(({ data }) => setDashboardMeeting(data)).catch(() => {})
+  }, [API])
+
   // F-13: Relative time helper
   const relativeTime = useCallback((isoStr) => {
     if (!isoStr) return ''
@@ -151,6 +178,239 @@ function App() {
     if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) > 1 ? 's' : ''} ago`
     return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) > 1 ? 's' : ''} ago`
   }, [])
+
+  useEffect(() => {
+    try {
+      if (currentUser) {
+        window.localStorage.setItem('contextos-user', JSON.stringify(currentUser))
+      } else {
+        window.localStorage.removeItem('contextos-user')
+      }
+    } catch {
+      // Ignore storage failures and continue with in-memory auth state.
+    }
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!currentUser?.id) return
+
+    axios.get(`${API}/auth/profile/${currentUser.id}`)
+      .then(({ data }) => {
+        if (data?.user) {
+          setCurrentUser(data.user)
+        }
+      })
+      .catch(() => {})
+  }, [API, currentUser?.id])
+
+  useEffect(() => {
+    if (!currentUser) return
+    setProfileForm({
+      name: currentUser.name || '',
+      email: currentUser.email || '',
+      password: '',
+    })
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!profileMenuOpen) return
+
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setProfileMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [profileMenuOpen])
+
+  useEffect(() => {
+    const lenis = window.__contextosLenis
+    if (profileOpen) {
+      lenis?.stop()
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+      lenis?.start()
+    }
+
+    return () => {
+      document.body.style.overflow = ''
+      lenis?.start()
+    }
+  }, [profileOpen])
+
+  useEffect(() => {
+    let timeoutId = 0
+    let idleId = 0
+
+    const enableDeferredSections = () => setDeferSearchSections(true)
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(enableDeferredSections, { timeout: 1500 })
+    } else {
+      timeoutId = window.setTimeout(enableDeferredSections, 1000)
+    }
+
+    return () => {
+      if (idleId && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    let timeoutId = 0
+    let idleId = 0
+
+    const enableHeroDecor = () => setDeferHeroDecor(true)
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(enableHeroDecor, { timeout: 2000 })
+    } else {
+      timeoutId = window.setTimeout(enableHeroDecor, 1200)
+    }
+
+    return () => {
+      if (idleId && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true
+      return
+    }
+
+    const lenis = window.__contextosLenis
+    if (lenis) {
+      lenis.scrollTo(0, { duration: 0.8 })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [activeTab])
+
+  const handleAuthenticate = (user) => {
+    setCurrentUser(user)
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setQuestion('')
+    setAnswer('')
+    setSources([])
+    setUploadContent('')
+    setUploadMessage('')
+    setActiveTab('search')
+    setProfileMenuOpen(false)
+    setProfileOpen(false)
+  }
+
+  const handleProfileChange = (key, value) => {
+    setProfileForm((prev) => ({ ...prev, [key]: value }))
+    if (profileError) setProfileError('')
+    if (profileSuccess) setProfileSuccess('')
+  }
+
+  const handleProfileSave = async () => {
+    if (!currentUser?.id) return
+    if (!profileForm.name.trim() || !profileForm.email.trim()) {
+      setProfileError('Name and email are required.')
+      return
+    }
+
+    setProfileSaving(true)
+    setProfileError('')
+    setProfileSuccess('')
+
+    try {
+      const { data } = await axios.patch(`${API}/auth/profile/${currentUser.id}`, {
+        name: profileForm.name.trim(),
+        email: profileForm.email.trim(),
+        password: profileForm.password.trim() || null,
+      })
+      setCurrentUser(data.user)
+      setProfileForm((prev) => ({ ...prev, password: '' }))
+      setProfileSuccess('Profile updated successfully.')
+    } catch (error) {
+      setProfileError(error.response?.data?.detail || 'Profile update failed.')
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  const avatarUrl = currentUser?.avatar_url
+    ? (currentUser.avatar_url.startsWith('http') ? currentUser.avatar_url : `${API}${currentUser.avatar_url}`)
+    : ''
+
+  const scrollToPricing = () => {
+    setActiveTab('search')
+    setMobileMenuOpen(false)
+    window.setTimeout(() => {
+      const target = document.getElementById('pricing')
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 120)
+  }
+
+  const renderAvatar = (className, textClassName = 'text-xs') => (
+    avatarUrl ? (
+      <img src={avatarUrl} alt={currentUser?.name || 'Profile'} className={`${className} object-cover`} />
+    ) : (
+      <div className={`${className} bg-blue-600 text-white flex items-center justify-center font-bold ${textClassName}`}>
+        {currentUser?.name?.[0]?.toUpperCase() || 'C'}
+      </div>
+    )
+  )
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file || !currentUser?.id) return
+
+    if (!file.type.startsWith('image/')) {
+      setProfileError('Please select a valid image file.')
+      event.target.value = ''
+      return
+    }
+
+    setAvatarUploading(true)
+    setProfileError('')
+    setProfileSuccess('')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const { data } = await axios.post(`${API}/auth/profile/${currentUser.id}/avatar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setCurrentUser(data.user)
+      setProfileSuccess('Profile photo updated successfully.')
+    } catch (error) {
+      setProfileError(error.response?.data?.detail || 'Profile photo upload failed.')
+    } finally {
+      setAvatarUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  const handleClearHistory = async () => {
+    try {
+      await axios.delete(`${API}/history`)
+    } catch {
+      // Keep the UI responsive even if the backend clear call fails.
+    }
+    setQueryHistory([])
+  }
 
 
   // ── F-09: Enhanced Ask with source chips + confidence ──
@@ -313,6 +573,7 @@ function App() {
 
   // F-08: Onboarding setup
   const setupOnboarding = async () => {
+    setOnboardingRunning(true)
     try {
       await axios.post(`${API}/demo/setup-onboarding`)
       setErrorData(null)
@@ -321,6 +582,8 @@ function App() {
       setTimeout(() => setUploadMessage(''), 4000)
     } catch {
       setErrorData({ error: true, error_code: 'OLLAMA_OFFLINE', user_message: 'Failed to set up onboarding data. Is Ollama running?', recovery_action: 'start_ollama' })
+    } finally {
+      setOnboardingRunning(false)
     }
   }
 
@@ -333,6 +596,31 @@ function App() {
     { d: 'Q1', h: 30 }, { d: 'Q2', h: 50 }, { d: 'Q3', h: 70 }, { d: 'Q4', h: 85, active: true, val: '380h' }
   ];
 
+  const memberSince = currentUser?.created_at
+    ? new Date(currentUser.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    : 'Not available'
+  const totalMemories = liveStats?.total_memories || 0
+  const totalQueries = benchmarks?.total_queries_served || queryHistory.length
+  const avgQuerySeconds = benchmarks?.avg_query_ms ? (benchmarks.avg_query_ms / 1000).toFixed(2) : '0.00'
+  const recentSources = queryHistory.slice(0, 4)
+  const paymentOverview = (liveStats?.payment_requests || []).slice(0, 3)
+  const activeMemoryTypes = liveStats?.memories_by_type
+    ? Object.entries(liveStats.memories_by_type).filter(([, count]) => count > 0).slice(0, 4)
+    : []
+  const completionScore = Math.min(
+    96,
+    45
+      + (currentUser?.name ? 20 : 0)
+      + (currentUser?.email ? 20 : 0)
+      + (totalMemories > 0 ? 11 : 0)
+  )
+
+  if (!currentUser) {
+    return <AuthPage onAuthenticate={handleAuthenticate} />
+  }
+
+  const cardSkeleton = 'rounded-[2rem] border border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-950/80 shadow-[0_18px_40px_rgba(15,23,42,0.05)] dark:shadow-none'
+
   return (
     <div className="min-h-screen text-slate-800 dark:text-slate-200 selection:bg-purple-200 overflow-x-hidden relative hero-gradient">
 
@@ -341,7 +629,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between w-full h-full">
           <div className="flex justify-start items-center">
             {/* F-16: Hamburger for mobile */}
-            <button className="md:hidden w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 mr-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <button aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'} className="md:hidden w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 mr-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveTab('search'); setMobileMenuOpen(false) }}>
@@ -357,23 +645,60 @@ function App() {
           </div>
 
           <div className="flex items-center justify-end gap-2 sm:gap-3">
-            <button className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
+            <button aria-label="Search workspace" className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
               <Search className="w-4 h-4" />
             </button>
-            <button className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 relative">
+            <button aria-label="Open notifications" className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 relative">
               <Bell className="w-4 h-4" />
               <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border border-white"></div>
             </button>
-            <a href="https://github.com/Cyansiiii/ContexOS" target="_blank" rel="noopener noreferrer" className="hidden md:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400">
+            <a aria-label="Open ContextOS GitHub repository" href="https://github.com/Cyansiiii/ContexOS" target="_blank" rel="noopener noreferrer" className="hidden md:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400">
               <Github className="w-4 h-4" />
             </a>
             <AnimatedThemeToggler className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400 focus:outline-none" />
-            <div className="h-8 pl-2 flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 ml-1 cursor-pointer">
-              <div className="w-8 h-8 rounded-full bg-blue-600 overflow-hidden text-white flex items-center justify-center font-bold text-xs shrink-0">C</div>
-              <div className="hidden md:block text-left">
-                <p className="text-[13px] font-bold text-slate-900 dark:text-white leading-tight">Anant Anandam</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium tracking-tight">anant.anandam@gmail.com</p>
-              </div>
+            <div ref={profileMenuRef} className="relative ml-1 border-l border-slate-200 pl-2 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((prev) => !prev)}
+                className="flex min-h-[40px] items-center gap-2 rounded-xl px-2 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                title="Open profile menu"
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+              >
+                {renderAvatar('w-8 h-8 rounded-full overflow-hidden shrink-0')}
+                <div className="text-left">
+                  <p className="text-[13px] font-bold text-slate-900 dark:text-white leading-tight">{currentUser.name}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium tracking-tight">{currentUser.email}</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-[70] w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+                  <button
+                    type="button"
+                    onClick={() => { setProfileMenuOpen(false); setProfileOpen(true) }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900"
+                  >
+                    <UserRound className="h-4 w-4 text-purple-500" />
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Profile settings</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Update name, email, and password</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                  >
+                    <LogOut className="h-4 w-4 text-rose-500" />
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Log out</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Exit current workspace session</div>
+                    </div>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -402,36 +727,34 @@ function App() {
             <div className="w-full max-w-7xl mx-auto relative min-h-[75vh] pb-32 px-6 lg:px-12">
 
               {/* HERO TYPOGRAPHY */}
-              <div className="absolute top-1/4 left-0 w-full z-0 flex items-center justify-center pointer-events-none overflow-visible pt-10">
-                <CurvedLoop
-                  marqueeText="CONTEXT OS ✦ INTELLIGENT ✦ FAST ✦ PRIVATE ✦"
-                  speed={2}
-                  curveAmount={250}
-                  interactive={false}
-                />
-              </div>
+              {deferHeroDecor && (
+                <div className="absolute top-1/4 left-0 w-full z-0 flex items-center justify-center pointer-events-none overflow-visible pt-10">
+                  <Suspense fallback={null}>
+                    <CurvedLoop
+                      marqueeText="CONTEXT OS ✦ INTELLIGENT ✦ FAST ✦ PRIVATE ✦"
+                      speed={2}
+                      curveAmount={250}
+                      interactive={false}
+                    />
+                  </Suspense>
+                </div>
+              )}
 
               <div className="text-center max-w-4xl mx-auto mb-16 relative z-10 pt-10 mt-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 dark:bg-white/10 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-600 dark:text-slate-300 shadow-sm mb-6">
                   <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <span>Powered by AMD Ryzen AI</span>
                 </div>
-                <h1 className="text-[3.5rem] md:text-[5rem] font-bold leading-[1.05] tracking-tight text-slate-900 dark:text-white mb-6">
+                <h1 className="text-[3.5rem] md:text-[5rem] font-bold leading-[1.12] tracking-tight text-slate-900 dark:text-white mb-6 overflow-visible">
                   Ready to try AI built on <br className="hidden md:block" />
-                  <LineShadowText className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400" shadowColor="rgba(124, 58, 237, 0.4)">
+                  <LineShadowText className="text-[#182038] dark:text-white" shadowColor="rgba(124, 58, 237, 0.72)">
                     your knowledge?
                   </LineShadowText>
                 </h1>
                 <p className="text-xl text-slate-600 dark:text-slate-300 font-normal mb-8 max-w-2xl mx-auto leading-loose flex flex-wrap justify-center gap-x-2 gap-y-2">
-                  <ScrollMarkerReveal delay={0} markerColor="bg-amber-200 dark:bg-amber-600/40">
-                    <span className="font-semibold text-slate-800 dark:text-white">Ask, chat, and research</span>
-                  </ScrollMarkerReveal>
-                  <ScrollMarkerReveal delay={0.2} markerColor="bg-purple-200 dark:bg-purple-600/40">
-                    using verified company knowledge.
-                  </ScrollMarkerReveal>
-                  <ScrollMarkerReveal delay={0.4} markerColor="bg-emerald-200 dark:bg-emerald-600/40">
-                    Always cited. Always secure.
-                  </ScrollMarkerReveal>
+                  <span className="rounded-md bg-amber-200/80 px-1.5 py-0.5 font-semibold text-slate-800 dark:bg-amber-600/30 dark:text-white">Ask, chat, and research</span>
+                  <span className="rounded-md bg-purple-200/70 px-1.5 py-0.5 dark:bg-purple-600/30">using verified company knowledge.</span>
+                  <span className="rounded-md bg-emerald-200/80 px-1.5 py-0.5 dark:bg-emerald-600/30">Always cited. Always secure.</span>
                 </p>
 
                 {/* SECURITY BADGES (Mocking Guru) */}
@@ -713,7 +1036,7 @@ function App() {
               )}
 
               {/* FLOATING BUBBLES BACKGROUND (Visible on Desktop) */}
-              {!answer && !expertResult && (
+              {!answer && !expertResult && deferHeroDecor && (
                 <div className="hidden lg:block absolute top-[10%] left-0 right-0 bottom-0 pointer-events-none z-0">
                   <div className="relative w-full h-full max-w-7xl mx-auto">
                     {FLOATING_CHATS.map((chat, idx) => (
@@ -744,24 +1067,35 @@ function App() {
               )}
             </div>
             {/* Integrations Section */}
-            <div className="w-full bg-slate-50 relative z-20 border-y border-slate-200 overflow-hidden">
-              <Integrations />
-            </div>
+            {deferSearchSections ? (
+              <>
+                <div className="w-full bg-slate-50 relative z-20 border-y border-slate-200 overflow-hidden" style={{ contentVisibility: 'auto', containIntrinsicSize: '800px' }}>
+                  <Suspense fallback={<div className={`${cardSkeleton} mx-auto my-10 h-56 max-w-6xl`} />}>
+                    <Integrations />
+                  </Suspense>
+                </div>
 
-            {/* Pricing Section */}
-            <div className="w-full">
-              <Pricing />
-            </div>
+                <div className="w-full" style={{ contentVisibility: 'auto', containIntrinsicSize: '1200px' }}>
+                  <Suspense fallback={<div className={`${cardSkeleton} mx-auto my-10 h-72 max-w-6xl`} />}>
+                    <Pricing currentUser={currentUser} />
+                  </Suspense>
+                </div>
+              </>
+            ) : (
+              <div className="w-full px-6 pb-8">
+                <div className={`${cardSkeleton} mx-auto h-40 max-w-6xl animate-pulse`} />
+              </div>
+            )}
           </div>
         )}
 
-        {/* --- UPLOAD VIEW --- */}
-        {activeTab === 'upload' && (
-          <div className="animate-slide-up max-w-3xl mx-auto mt-8 px-6">
-            <div className="text-center mb-10">
-              <h2 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">Add to your Knowledge Base</h2>
-              <p className="text-lg text-slate-600 dark:text-slate-400">Connect your tools or paste directly to train the AI instantly.</p>
-            </div>
+          {/* --- UPLOAD VIEW --- */}
+          {activeTab === 'upload' && (
+            <div className="animate-slide-up max-w-3xl mx-auto mt-8 px-6">
+              <div className="text-center mb-10">
+                <h2 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">Add to your Knowledge Base</h2>
+                <p className="text-lg text-slate-600 dark:text-slate-400">Connect your tools or paste directly to train the AI instantly.</p>
+              </div>
 
             {/* ── Connected Sources ────────────────────────── */}
             <div className="mb-8">
@@ -770,8 +1104,12 @@ function App() {
                 Connected Sources
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <GmailCard />
-                <SlackCard />
+                <Suspense fallback={<div className={`${cardSkeleton} h-40 animate-pulse`} />}>
+                  <GmailCard />
+                </Suspense>
+                <Suspense fallback={<div className={`${cardSkeleton} h-40 animate-pulse`} />}>
+                  <SlackCard />
+                </Suspense>
               </div>
             </div>
 
@@ -793,7 +1131,7 @@ function App() {
                     className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all border-2 ${uploadSource === t.id
                       ? t.id === 'decision'
                         ? 'border-[#ED1C24] bg-red-50 dark:bg-red-900/10 text-[#ED1C24]'
-                        : 'border-[#8250f2] bg-purple-50 dark:bg-purple-900/20 text-[#8250f2] dark:text-purple-400'
+                        : 'border-[#ED1C24] bg-red-50 dark:bg-red-900/10 text-[#ED1C24]'
                       : 'border-transparent bg-slate-50 dark:bg-[#1a1c22]/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#252830]'
                       }`}
                   >
@@ -924,17 +1262,64 @@ function App() {
         {/* --- DASHBOARD VIEW --- */}
         {activeTab === 'dashboard' && (
           <div className="animate-slide-up max-w-[1400px] mx-auto mt-4 pb-12 px-6">
-            {/* AMD Status Card — full width, first element */}
-            <div className="mb-6 flex flex-col sm:flex-row items-start gap-4">
-              <div className="flex-1 w-full">
-                <AmdStatusCard />
+            <div className="mb-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="w-full">
+                <Suspense fallback={<div className={`${cardSkeleton} h-[380px] animate-pulse`} />}>
+                  <AmdStatusCard />
+                </Suspense>
               </div>
-              <button
-                onClick={setupOnboarding}
-                className="shrink-0 px-5 py-3 rounded-xl bg-[#6EE7C3]/10 border border-[#6EE7C3]/25 text-[#6EE7C3] text-sm font-bold hover:bg-[#6EE7C3]/20 transition-all flex items-center gap-2 mt-2 sm:mt-0"
-              >
-                <Zap className="w-4 h-4" /> Run Onboarding Setup
-              </button>
+
+              <div className="rounded-[30px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,rgba(240,253,250,0.92))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#0b1220,#0f172a)] dark:shadow-none">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Onboarding setup
+                </div>
+
+                <h3 className="mt-4 text-2xl font-black tracking-[-0.04em] text-slate-900 dark:text-white">
+                  Seed the workspace fast
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">
+                  Add starter memories for onboarding, company context, and expert discovery so the assistant has usable demo knowledge immediately.
+                </p>
+
+                <div className="mt-5 grid gap-3">
+                  {[
+                    'Adds onboarding-focused starter memories',
+                    'Improves first-run search and answers',
+                    'Works entirely on your local stack',
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.04)] dark:bg-slate-950 dark:text-slate-300 dark:shadow-none"
+                    >
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={setupOnboarding}
+                  disabled={onboardingRunning}
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 text-sm font-bold text-white shadow-[0_18px_35px_rgba(16,185,129,0.25)] transition-all hover:translate-y-[-1px] hover:shadow-[0_22px_40px_rgba(16,185,129,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {onboardingRunning ? (
+                    <>
+                      <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      Preparing onboarding memories...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      Run Onboarding Setup
+                    </>
+                  )}
+                </button>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                  Expected result: onboarding memory pack, faster first answers, and demo-ready workspace context.
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -942,25 +1327,25 @@ function App() {
               {/* LEFT COLUMN */}
               <div className="lg:col-span-1 flex flex-col gap-6">
                 {/* Working Hours */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 lg:p-7 relative overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <BorderBeam duration={8} size={200} className="from-transparent via-amber-500 to-transparent" />
-                  <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4">Today&apos;s working hours</h3>
-                  <div className="flex items-baseline gap-2 mb-6 border-b border-dashed border-slate-200 dark:border-slate-700 pb-5">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 mb-4">Today&apos;s working hours</h3>
+                  <div className="flex items-baseline gap-2 mb-6 border-b border-dashed border-slate-200 dark:border-slate-800 pb-5">
                     <Clock className="w-5 h-5 text-amber-700 dark:text-amber-500" />
-                    <span className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">8 h 27m</span>
+                    <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">8 h 27m</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Active time</p>
                       <p className="text-xs text-slate-500 font-medium mb-3">6h 17m</p>
-                      <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-4 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
                         <div className="h-full w-[70%] stripe-green animate-progress origin-left transition-all duration-1000"></div>
                       </div>
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Pause time</p>
                       <p className="text-xs text-slate-500 font-medium mb-3">2h 10m</p>
-                      <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-4 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
                         <div className="h-full w-[30%] stripe-pink animate-progress origin-left transition-all duration-1000 delay-150"></div>
                       </div>
                     </div>
@@ -968,13 +1353,13 @@ function App() {
                 </div>
 
                 {/* Meeting Card */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 lg:p-7 relative overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <BorderBeam duration={8} size={200} className="from-transparent via-blue-500 to-transparent" />
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">
                     <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
-                    In 30 minutes
+                    {dashboardMeeting?.starts_in || 'In 30 minutes'}
                   </div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Meeting with Product team</h3>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">{dashboardMeeting?.title || 'Meeting with Product team'}</h3>
 
                   {/* Timeline block */}
                   <div className="relative h-12 mb-2">
@@ -982,19 +1367,24 @@ function App() {
                     <div className="absolute top-1/2 -translate-y-1/2 left-[10%] w-[40%] h-8 bg-blue-500/10 border border-blue-500/20 rounded-md"></div>
                   </div>
                   <div className="flex justify-between text-xs font-semibold text-slate-400 mb-6">
-                    <span>10:15<span className="ml-4 text-slate-800 dark:text-slate-200">10:30</span></span>
-                    <span><span className="mr-3 text-slate-800 dark:text-slate-200">12:00</span>12:15</span>
+                    <span>10:15<span className="ml-4 text-slate-800 dark:text-slate-200">{dashboardMeeting?.start_time || '10:30'}</span></span>
+                    <span><span className="mr-3 text-slate-800 dark:text-slate-200">{dashboardMeeting?.end_time || '12:00'}</span>12:15</span>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between group cursor-pointer">
+                  <a
+                    href={dashboardMeeting?.meeting_url || 'https://meet.google.com/nux-wq-tu'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between group cursor-pointer"
+                  >
                     <div>
                       <p className="text-sm font-semibold text-slate-900 dark:text-white mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Join on Google Meet</p>
-                      <p className="text-xs text-slate-500 flex items-center gap-1"><Video className="w-3 h-3" /> meet.google.com/nux-wq-tu</p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1"><Video className="w-3 h-3" /> {dashboardMeeting?.meeting_code || 'meet.google.com/nux-wq-tu'}</p>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <Video className="w-4 h-4" />
                     </div>
-                  </div>
+                  </a>
                 </div>
               </div>
 
@@ -1002,16 +1392,16 @@ function App() {
               <div className="lg:col-span-2 flex flex-col gap-6">
 
                 {/* Activity Graph Card */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group">
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 lg:p-8 relative overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <BorderBeam duration={8} size={350} reverse className="from-transparent via-emerald-500 to-transparent" />
                   <div className="flex justify-between items-start mb-8 relative z-10">
                     <div>
                       <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Activity</h2>
                       <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs font-medium leading-relaxed">You logged <span className="font-bold text-slate-700 dark:text-slate-300">32.2 hours</span> this week — up <span className="font-bold text-slate-700 dark:text-slate-300">4.3 hours</span> from last month.</p>
                     </div>
-                    <div className="flex bg-slate-100/80 p-1 rounded-xl">
+                    <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
                       {['Week', 'Month', 'Year'].map(p => (
-                        <button key={p} onClick={() => setActivityPeriod(p)} className={`px-4 py-1.5 rounded-lg text-sm transition-all ${activityPeriod === p ? 'bg-white shadow-sm font-bold text-slate-800' : 'font-semibold text-slate-500 hover:text-slate-800'}`}>{p}</button>
+                        <button key={p} onClick={() => setActivityPeriod(p)} className={`px-4 py-1.5 rounded-lg text-sm transition-all ${activityPeriod === p ? 'bg-white dark:bg-slate-800 shadow-sm font-bold text-slate-800 dark:text-white' : 'font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>{p}</button>
                       ))}
                     </div>
                   </div>
@@ -1028,36 +1418,19 @@ function App() {
 
                     {/* Bar Graph Recharts */}
                     <div className="flex items-end h-full ml-auto w-[65%] sm:w-[50%] md:w-3/5 lg:w-[65%] mt-4">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
-                          <XAxis dataKey="d" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }} dy={10} />
-                          <Tooltip cursor={{ fill: 'transparent', opacity: 0.1 }} content={({ active, payload }) => {
-                            if (active && payload && payload.length) {
-                              return (
-                                <div className="bg-[#212121] dark:bg-slate-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xl -translate-y-4">
-                                  {payload[0].payload.val || `${(payload[0].value / 10).toFixed(1)}h`}
-                                </div>
-                              );
-                            }
-                            return null;
-                          }} />
-                          <Bar dataKey="h" radius={[6, 6, 6, 6]} animationDuration={1000}>
-                            {chartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.active ? '#2563eb' : '#3b82f6'} style={{ opacity: entry.active ? 1 : 0.6 }} className="hover:opacity-100 transition-opacity cursor-pointer shadow-lg" />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <Suspense fallback={<div className="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-900 animate-pulse" />}>
+                        <ActivityChart chartData={chartData} />
+                      </Suspense>
                     </div>
                   </div>
                 </div>
 
                 {/* Today's Tasks Blocks */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group">
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 lg:p-8 relative overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <BorderBeam duration={10} size={300} className="from-transparent via-indigo-500 to-transparent" />
                   <div className="flex justify-between items-center mb-6 relative z-10">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">Today&apos;s tasks</h2>
-                    <a href="#" className="text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">View all</a>
+                    <button type="button" aria-label="View all tasks" className="text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">View all</button>
                   </div>
 
                   <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
@@ -1066,7 +1439,7 @@ function App() {
                       <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
                       <div className="flex justify-between items-start mb-8 relative z-10">
                         <span className="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full">10:30 - 12:00 AM</span>
-                        <button className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                      <button aria-label="Open task menu for Technical English Session" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </div>
@@ -1088,10 +1461,10 @@ function App() {
                     </div>
 
                     {/* Pending Task Card 1 */}
-                    <div className="min-w-[280px] bg-slate-50 dark:bg-[#1a1c22]/50 border border-slate-100 dark:border-white/10 rounded-[2rem] p-6 shadow-sm relative group hover:-translate-y-1 transition-transform cursor-pointer hover:shadow-md">
+                    <div className="min-w-[280px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm relative group hover:-translate-y-1 transition-transform cursor-pointer hover:shadow-md dark:hover:shadow-none">
                       <div className="flex justify-between items-start mb-8">
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-300">01:00 - 02:30 PM</span>
-                        <button className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                        <button aria-label="Open task menu for UI Components Workshop" className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors">
                           <MoreHorizontal className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                         </button>
                       </div>
@@ -1100,7 +1473,7 @@ function App() {
                         <h3 className="text-lg font-bold leading-tight text-slate-900 dark:text-white mb-2">UI Components<br />Workshop</h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">Create and refine interface eleme...</p>
                       </div>
-                      <div className="flex justify-between items-center border-t border-slate-200 pt-4">
+                      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-4">
                         <div className="flex -space-x-2">
                           <div className="w-7 h-7 rounded-full bg-emerald-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">MK</div>
                           <div className="w-7 h-7 rounded-full bg-orange-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">PL</div>
@@ -1114,10 +1487,10 @@ function App() {
                     </div>
 
                     {/* Pending Task Card 2 */}
-                    <div className="min-w-[280px] bg-slate-50 dark:bg-[#1a1c22]/50 border border-slate-100 dark:border-white/10 rounded-[2rem] p-6 shadow-sm relative group hover:-translate-y-1 transition-transform cursor-pointer hover:shadow-md">
+                    <div className="min-w-[280px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm relative group hover:-translate-y-1 transition-transform cursor-pointer hover:shadow-md dark:hover:shadow-none">
                       <div className="flex justify-between items-start mb-8">
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-300">2:30 - 16:00 PM</span>
-                        <button className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                        <button aria-label="Open task menu for Extended Team Sync Meeting" className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors">
                           <MoreHorizontal className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                         </button>
                       </div>
@@ -1126,7 +1499,7 @@ function App() {
                         <h3 className="text-lg font-bold leading-tight text-slate-900 dark:text-white mb-2">Extended Team Sync<br />Meeting</h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">Discuss progress, blockers, and ne...</p>
                       </div>
-                      <div className="flex justify-between items-center border-t border-slate-200 pt-4">
+                      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-4">
                         <div className="flex -space-x-2">
                           <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">AS</div>
                           <div className="w-7 h-7 rounded-full bg-pink-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">TR</div>
@@ -1140,7 +1513,7 @@ function App() {
 
                     {/* Add new space */}
                     <div className="min-w-[100px] flex items-center justify-center">
-                      <button className="w-14 h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-400 hover:text-slate-600 transition-colors">
+                      <button aria-label="Add a new task" className="w-14 h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-400 hover:text-slate-600 transition-colors">
                         <Plus className="w-6 h-6" />
                       </button>
                     </div>
@@ -1152,7 +1525,7 @@ function App() {
               <div className="lg:col-span-1 flex flex-col gap-6">
 
                 {/* F-14: Live Memory Stats Card */}
-                <div className="glass-card rounded-[2rem] p-6 lg:p-7 relative overflow-hidden group">
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 lg:p-7 relative overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <BorderBeam duration={8} size={250} className="from-transparent via-emerald-500 to-transparent" />
                   <div className="flex justify-between items-center mb-8 relative z-10">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1218,7 +1591,7 @@ function App() {
                       <Clock className="w-4 h-4 text-purple-500" /> Recent Activity
                     </h3>
                     {queryHistory.length > 0 && (
-                      <button onClick={() => setQueryHistory([])} className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-[#ED1C24] transition-colors">
+                      <button onClick={handleClearHistory} className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-[#ED1C24] transition-colors">
                         Clear all
                       </button>
                     )}
@@ -1279,7 +1652,7 @@ function App() {
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Proudly Made in Bengaluru, India</span>
               </div>
               <div className="hidden sm:block w-1.5 h-1.5 rounded-full bg-slate-700"></div>
-              <button onClick={() => {setActiveTab('dpdp'); window.scrollTo(0, 0);}} className="flex items-center gap-2 px-4 py-2 bg-[#6EE7C3]/5 hover:bg-[#6EE7C3]/10 border border-[#6EE7C3]/20 rounded-full transition-colors cursor-pointer group">
+              <button onClick={() => { setActiveTab('dpdp'); window.__contextosLenis?.scrollTo(0, { duration: 0.8 }) }} className="flex items-center gap-2 px-4 py-2 bg-[#6EE7C3]/5 hover:bg-[#6EE7C3]/10 border border-[#6EE7C3]/20 rounded-full transition-colors cursor-pointer group">
                 <Shield className="w-3.5 h-3.5 text-[#6EE7C3]" />
                 <span className="text-[11px] font-bold text-[#6EE7C3] uppercase tracking-widest group-hover:text-white transition-colors">Fully Compliant with DPDP Act 2023</span>
               </button>
@@ -1290,10 +1663,400 @@ function App() {
         {/* --- F-19: DPDP COMPLIANCE PAGE --- */}
         {activeTab === 'dpdp' && (
           <div className="animate-slide-up w-full px-4 relative z-20">
-            <DPDPPage activeTab={activeTab} setActiveTab={setActiveTab} />
+            <Suspense fallback={<div className="mx-auto max-w-6xl px-6"><div className={`${cardSkeleton} h-[60vh] animate-pulse`} /></div>}>
+              <DPDPPage activeTab={activeTab} setActiveTab={setActiveTab} />
+            </Suspense>
           </div>
         )}
       </main>
+
+      {uploadMessage ? (
+        <div className="fixed right-4 top-20 z-[90] max-w-sm rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 shadow-2xl dark:border-emerald-500/20 dark:bg-slate-950 dark:text-emerald-300">
+          {uploadMessage}
+        </div>
+      ) : null}
+
+      <footer className="border-t border-slate-200 bg-white/80 px-4 py-5 text-sm text-slate-600 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 dark:text-slate-300">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 md:flex-row">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button type="button" onClick={() => setActiveTab('dpdp')} className="transition-colors hover:text-[#ED1C24]">Privacy (DPDP)</button>
+            <button type="button" onClick={scrollToPricing} className="transition-colors hover:text-[#ED1C24]">Pricing</button>
+            <a href="https://github.com/Cyansiiii/ContexOS" target="_blank" rel="noreferrer" className="transition-colors hover:text-[#ED1C24]">GitHub</a>
+            <a href="https://github.com/Cyansiiii/ContextOS/blob/main/DEPLOYMENT.md" target="_blank" rel="noreferrer" className="transition-colors hover:text-[#ED1C24]">Deployment Guide</a>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-center">
+            <span className="rounded-full bg-[#ED1C24]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-[#ED1C24]">AMD Slingshot 2026</span>
+            <span className="font-medium">Made in India 🇮🇳</span>
+          </div>
+        </div>
+      </footer>
+
+      {profileOpen && (
+        <div data-lenis-prevent className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+          <div className="mx-auto w-full max-w-7xl rounded-[2rem] border border-slate-200/80 bg-[#f7f8fb] p-4 shadow-2xl dark:border-slate-800 dark:bg-[#090d14] sm:p-6">
+            <div className="mb-6 flex items-start justify-between gap-4 border-b border-slate-200/80 pb-5 dark:border-slate-800">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#efe9ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d42d8] dark:bg-[#6d42d8]/10 dark:text-[#c8b8ff]">
+                  Professional Profile
+                </div>
+                <h2 className="mt-3 text-3xl font-bold tracking-[-0.04em] text-slate-900 dark:text-white">ContextOS operator dashboard</h2>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  Live account details, workspace performance, activity trail, and profile controls in one place.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileOpen(false)}
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+              <div className="space-y-6">
+                <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950">
+                  <div className="relative overflow-hidden bg-gradient-to-br from-[#6d42d8] via-[#8f6cff] to-[#5ac8a5] px-6 pb-8 pt-6 text-white">
+                    <div className="absolute right-[-48px] top-[-36px] h-36 w-36 rounded-full bg-white/10 blur-2xl" />
+                    <div className="absolute left-[-24px] bottom-[-54px] h-32 w-32 rounded-full bg-black/10 blur-2xl" />
+                    <div className="relative flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          {renderAvatar('h-16 w-16 rounded-[20px] border border-white/20 bg-white/18 text-2xl font-black backdrop-blur', 'text-2xl')}
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            disabled={avatarUploading}
+                            className="absolute -bottom-2 -right-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-slate-950/80 text-white shadow-lg transition-colors hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Upload profile photo"
+                          >
+                            <UploadCloud className="h-3.5 w-3.5" />
+                          </button>
+                          <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
+                            className="hidden"
+                            onChange={handleAvatarUpload}
+                          />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold">{currentUser.name}</h3>
+                          <p className="mt-1 text-sm text-white/80">{currentUser.email}</p>
+                          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/16 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Verified workspace member
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 px-6 py-5">
+                    <div className="rounded-2xl bg-slate-50 px-4 py-4 dark:bg-slate-900">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Member since</div>
+                      <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        <CalendarDays className="h-4 w-4 text-[#6d42d8]" />
+                        {memberSince}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 px-4 py-4 dark:bg-slate-900">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Performance</div>
+                      <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        <BarChart3 className="h-4 w-4 text-emerald-500" />
+                        Grade {benchmarks?.performance_grade || 'A'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-200 px-6 py-5 dark:border-slate-800">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Profile completion</div>
+                        <div className="mt-1 text-3xl font-black tracking-tight text-slate-900 dark:text-white">{completionScore}%</div>
+                      </div>
+                      <div className="relative h-20 w-20">
+                        <svg viewBox="0 0 44 44" className="h-20 w-20 -rotate-90">
+                          <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(148,163,184,0.18)" strokeWidth="4" />
+                          <circle
+                            cx="22"
+                            cy="22"
+                            r="18"
+                            fill="none"
+                            stroke="url(#profileCompletionGradient)"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            strokeDasharray={`${completionScore} 100`}
+                            pathLength="100"
+                          />
+                          <defs>
+                            <linearGradient id="profileCompletionGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#6d42d8" />
+                              <stop offset="100%" stopColor="#5ac8a5" />
+                            </linearGradient>
+                          </defs>
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200">
+                          {completionScore}
+                        </div>
+                      </div>
+                    </div>
+
+                      <div className="space-y-3">
+                      <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-900">
+                        <div className="flex items-center gap-3">
+                          <UploadCloud className="h-4 w-4 text-sky-500" />
+                          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Profile photo</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => avatarInputRef.current?.click()}
+                          disabled={avatarUploading}
+                          className="text-sm font-semibold text-slate-900 transition-opacity hover:opacity-70 dark:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {avatarUploading ? 'Uploading...' : avatarUrl ? 'Replace' : 'Upload'}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-900">
+                        <div className="flex items-center gap-3">
+                          <Mail className="h-4 w-4 text-[#6d42d8]" />
+                          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Communication channel</span>
+                        </div>
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">Email active</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-900">
+                        <div className="flex items-center gap-3">
+                          <Cpu className="h-4 w-4 text-emerald-500" />
+                          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Inference mode</span>
+                        </div>
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">Local Ollama</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Memory composition</div>
+                      <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Workspace coverage</h3>
+                    </div>
+                    <Database className="h-5 w-5 text-[#6d42d8]" />
+                  </div>
+                  <div className="space-y-3">
+                    {activeMemoryTypes.length > 0 ? activeMemoryTypes.map(([type, count]) => (
+                      <div key={type}>
+                        <div className="mb-1 flex items-center justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
+                          <span className="capitalize">{type.replace('_', ' ')}</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{count}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#6d42d8] to-[#5ac8a5]"
+                            style={{ width: `${Math.max(18, Math.min(100, Math.round((count / Math.max(totalMemories, 1)) * 100)))}%` }}
+                          />
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                        No indexed memory categories yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-4">
+                  {[
+                    { label: 'Memories indexed', value: totalMemories, hint: 'Live company memory', icon: Database, color: 'text-[#6d42d8]' },
+                    { label: 'Queries served', value: totalQueries, hint: 'Session intelligence usage', icon: MessageSquare, color: 'text-emerald-500' },
+                    { label: 'Avg response', value: `${avgQuerySeconds}s`, hint: 'Current benchmark average', icon: Zap, color: 'text-amber-500' },
+                    { label: 'Database size', value: `${liveStats?.chromadb_size_mb || 0} MB`, hint: 'Stored local footprint', icon: Cpu, color: 'text-sky-500' },
+                  ].map((card) => {
+                    const Icon = card.icon
+                    return (
+                      <div key={card.label} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
+                        <div className="flex items-center justify-between">
+                          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-900 ${card.color}`}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Live</span>
+                        </div>
+                        <div className="mt-5 text-3xl font-black tracking-tight text-slate-900 dark:text-white">{card.value}</div>
+                        <div className="mt-1 text-sm font-medium text-slate-600 dark:text-slate-300">{card.label}</div>
+                        <div className="mt-2 text-xs text-slate-400">{card.hint}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+                  <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950">
+                    <div className="mb-5 flex items-center justify-between">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Workspace activity</div>
+                        <h3 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">Recent verified interactions</h3>
+                      </div>
+                      <Activity className="h-5 w-5 text-[#6d42d8]" />
+                    </div>
+
+                    <div className="space-y-4">
+                      {recentSources.length > 0 ? recentSources.map((item, index) => (
+                        <div key={`${item.query}-${index}`} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="text-sm font-semibold text-slate-900 dark:text-white line-clamp-1">{item.query}</div>
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{item.answer_preview}</div>
+                            </div>
+                            <div className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+                              {relativeTime(item.timestamp)}
+                            </div>
+                          </div>
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            {(item.sources || []).slice(0, 3).map((src) => (
+                              <span key={src} className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+                                {src}
+                              </span>
+                            ))}
+                            <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                              item.confidence === 'High'
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                : item.confidence === 'Medium'
+                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                                  : 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
+                            }`}>
+                              {item.confidence || 'Low'} confidence
+                            </span>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/70 px-5 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+                          No recent activity yet. Ask a question and this panel will populate automatically.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950">
+                      <div className="mb-5 flex items-center justify-between">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Billing snapshots</div>
+                          <h3 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">Recent payment requests</h3>
+                        </div>
+                        <CreditCard className="h-5 w-5 text-[#6d42d8]" />
+                      </div>
+                      <div className="space-y-3">
+                        {paymentOverview.length > 0 ? paymentOverview.map((payment) => (
+                          <div key={payment.request_id} className="rounded-2xl bg-slate-50 px-4 py-4 dark:bg-slate-900">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold capitalize text-slate-900 dark:text-white">{payment.plan} plan</div>
+                                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                  {payment.customer_email || 'No customer email'} • {payment.billing_cycle}
+                                </div>
+                              </div>
+                              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold capitalize text-slate-500 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+                                {payment.status?.replaceAll('_', ' ')}
+                              </span>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                            No billing activity captured yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950">
+                      <div className="mb-5 flex items-center justify-between">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Account controls</div>
+                          <h3 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">Update profile</h3>
+                        </div>
+                        <UserRound className="h-5 w-5 text-[#6d42d8]" />
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                            <UserRound className="h-4 w-4" />
+                            Full name
+                          </span>
+                          <input
+                            type="text"
+                            value={profileForm.name}
+                            onChange={(event) => handleProfileChange('name', event.target.value)}
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                            <Mail className="h-4 w-4" />
+                            Email
+                          </span>
+                          <input
+                            type="email"
+                            value={profileForm.email}
+                            onChange={(event) => handleProfileChange('email', event.target.value)}
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="mt-4 block">
+                        <span className="mb-2 block text-sm font-medium text-slate-600 dark:text-slate-300">New password</span>
+                        <input
+                          type="password"
+                          value={profileForm.password}
+                          onChange={(event) => handleProfileChange('password', event.target.value)}
+                          placeholder="Leave blank to keep current password"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                        />
+                      </label>
+
+                      {profileError ? (
+                        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+                          {profileError}
+                        </div>
+                      ) : null}
+
+                      {profileSuccess ? (
+                        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                          {profileSuccess}
+                        </div>
+                      ) : null}
+
+                      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-between">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Log out
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleProfileSave}
+                          disabled={profileSaving}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6d42d8] to-[#8f6cff] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/20 transition-all hover:translate-y-[-1px] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Save className="h-4 w-4" />
+                          {profileSaving ? 'Saving...' : 'Save profile'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,129 +1,143 @@
-/**
- * AmdStatusCard.jsx — Live AMD Inference Status Card for ContextOS Dashboard.
- *
- * Two panels:
- *   Left:  Status indicator, models, hardware, cloud calls counter
- *   Right: Live CPU/RAM arc gauges (update every 3s)
- *
- * Honest AMD framing — shows actual hardware; never fakes AMD branding
- * on non-AMD machines. Cloud API Calls: 0 always visible.
- */
-
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import {
-  Cpu, HardDrive, Wifi, WifiOff, Shield,
-  Activity, Server, Zap, MonitorSpeaker
+  Cpu, HardDrive, Shield, Server, Zap, MonitorSpeaker
 } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-// ─── SVG Arc Gauge Component ──────────────────────────────────────
-function ArcGauge({ percent = 0, label, sublabel, size = 120 }) {
+function ArcGauge({ percent = 0, label, sublabel, size = 150 }) {
   const radius = 44
   const stroke = 7
-  const circumference = Math.PI * radius // half-circle
+  const circumference = Math.PI * radius
   const offset = circumference - (percent / 100) * circumference
 
-  // Color thresholds
   const color =
-    percent >= 90 ? '#ED1C24' :
-    percent >= 70 ? '#F59E0B' :
-                    '#6EE7C3'
+    percent >= 90 ? '#ef4444' :
+    percent >= 70 ? '#f59e0b' :
+      '#10b981'
 
   const glowColor =
-    percent >= 90 ? 'rgba(237,28,36,0.3)' :
-    percent >= 70 ? 'rgba(245,158,11,0.2)' :
-                    'rgba(110,231,195,0.2)'
+    percent >= 90 ? 'rgba(239,68,68,0.28)' :
+    percent >= 70 ? 'rgba(245,158,11,0.24)' :
+      'rgba(16,185,129,0.24)'
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width={size} height={size * 0.62} viewBox="0 0 100 62" className="overflow-visible">
-        {/* Track */}
-        <path
-          d="M 6 56 A 44 44 0 0 1 94 56"
-          fill="none"
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-        />
-        {/* Progress */}
-        <path
-          d="M 6 56 A 44 44 0 0 1 94 56"
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          style={{
-            transition: 'stroke-dashoffset 0.5s ease, stroke 0.5s ease',
-            filter: `drop-shadow(0 0 6px ${glowColor})`,
-          }}
-        />
-        {/* Center value */}
-        <text
-          x="50" y="48"
-          textAnchor="middle"
-          className="fill-white"
-          style={{ fontSize: '18px', fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}
-        >
-          {percent.toFixed(0)}%
-        </text>
-      </svg>
-      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400 mt-1">
-        {label}
-      </span>
-      {sublabel && (
-        <span className="text-[10px] text-slate-500 font-medium mt-0.5">{sublabel}</span>
-      )}
+    <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+      <div className="flex flex-col items-center">
+        <svg width={size} height={size * 0.62} viewBox="0 0 100 62" className="overflow-visible">
+          <path
+            d="M 6 56 A 44 44 0 0 1 94 56"
+            fill="none"
+            stroke="rgba(148,163,184,0.26)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+          />
+          <path
+            d="M 6 56 A 44 44 0 0 1 94 56"
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{
+              transition: 'stroke-dashoffset 0.5s ease, stroke 0.5s ease',
+              filter: `drop-shadow(0 0 6px ${glowColor})`,
+            }}
+          />
+          <text
+            x="50"
+            y="48"
+            textAnchor="middle"
+            className="fill-slate-900 dark:fill-white"
+            style={{ fontSize: '18px', fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}
+          >
+            {percent.toFixed(0)}%
+          </text>
+        </svg>
+        <span className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+          {label}
+        </span>
+        {sublabel && (
+          <span className="mt-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">{sublabel}</span>
+        )}
+      </div>
     </div>
   )
 }
 
-// ─── Status Dot with Pulse ────────────────────────────────────────
 function StatusDot({ status }) {
   const colors = {
-    ACTIVE: 'bg-[#6EE7C3]',
+    ACTIVE: 'bg-emerald-500',
     DEGRADED: 'bg-amber-400',
-    OFFLINE: 'bg-[#ED1C24]',
+    OFFLINE: 'bg-rose-500',
   }
   const glows = {
-    ACTIVE: 'shadow-[0_0_8px_#6EE7C3,0_0_20px_rgba(110,231,195,0.3)]',
-    DEGRADED: 'shadow-[0_0_8px_#F59E0B]',
-    OFFLINE: 'shadow-[0_0_8px_#ED1C24]',
+    ACTIVE: 'shadow-[0_0_10px_rgba(16,185,129,0.45)]',
+    DEGRADED: 'shadow-[0_0_10px_rgba(245,158,11,0.4)]',
+    OFFLINE: 'shadow-[0_0_10px_rgba(244,63,94,0.45)]',
   }
   return (
-    <div className="relative flex items-center justify-center w-3 h-3">
-      <div className={`absolute w-3 h-3 rounded-full ${colors[status]} ${glows[status]} ${status === 'ACTIVE' ? 'animate-pulse' : ''}`} />
-      <div className={`w-2 h-2 rounded-full ${colors[status]} relative z-10`} />
+    <div className="relative flex h-3.5 w-3.5 items-center justify-center">
+      <div className={`absolute h-3.5 w-3.5 rounded-full ${colors[status]} ${glows[status]} ${status === 'ACTIVE' ? 'animate-pulse' : ''}`} />
+      <div className={`relative z-10 h-2.5 w-2.5 rounded-full ${colors[status]}`} />
     </div>
   )
 }
 
-// ─── Loading Skeleton ─────────────────────────────────────────────
 function Skeleton() {
   return (
-    <div className="animate-pulse space-y-4 p-8">
-      <div className="flex items-center gap-3">
-        <div className="w-3 h-3 rounded-full bg-white/10" />
-        <div className="h-5 w-48 bg-white/10 rounded" />
+    <div className="animate-pulse rounded-[28px] border border-slate-200 bg-white p-8 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="h-3 w-3 rounded-full bg-slate-200 dark:bg-slate-800" />
+        <div className="h-5 w-52 rounded bg-slate-200 dark:bg-slate-800" />
       </div>
-      <div className="grid grid-cols-2 gap-6 mt-6">
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-3">
-          {[1,2,3,4,5].map(i => (
-            <div key={i} className="h-4 bg-white/5 rounded w-full" />
+          {[1, 2, 3, 4, 5].map((item) => (
+            <div key={item} className="h-14 rounded-2xl bg-slate-100 dark:bg-slate-900" />
           ))}
         </div>
-        <div className="flex items-center justify-center">
-          <div className="w-24 h-16 bg-white/5 rounded-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          <div className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-900" />
+          <div className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-900" />
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────
+function InfoRow({ icon, label, value, badge, badgeTone = 'emerald', valueColor }) {
+  const badgeClass =
+    badgeTone === 'rose'
+      ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
+      : badgeTone === 'amber'
+        ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</div>
+          <div className={`mt-1 truncate text-sm font-semibold ${valueColor || 'text-slate-900 dark:text-white'}`}>
+            {value}
+          </div>
+        </div>
+      </div>
+      {badge ? (
+        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${badgeClass}`}>
+          {badge}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 export default function AmdStatusCard() {
   const [status, setStatus] = useState(null)
   const [metrics, setMetrics] = useState(null)
@@ -131,12 +145,10 @@ export default function AmdStatusCard() {
   const [loading, setLoading] = useState(true)
   const intervalRef = useRef(null)
 
-  // ── Initial full status fetch ─────────────
   useEffect(() => {
     fetchStatus()
   }, [])
 
-  // ── Live metrics polling every 3s ─────────
   useEffect(() => {
     intervalRef.current = setInterval(fetchMetrics, 3000)
     return () => {
@@ -170,12 +182,14 @@ export default function AmdStatusCard() {
       const { data } = await axios.get(`${API}/amd/metrics`)
       setMetrics(data)
     } catch {
-      // Silently fail
+      // ignore
     }
     try {
       const { data } = await axios.get(`${API}/benchmarks`)
       setBenchmarks(data)
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 
   if (loading || !status) return <Skeleton />
@@ -183,194 +197,151 @@ export default function AmdStatusCard() {
   const hw = status.hardware || {}
   const isAmd = hw.amd_gpu_detected || false
   const statusLabels = {
-    ACTIVE: 'AMD INFERENCE ACTIVE',
-    DEGRADED: 'SYSTEM DEGRADED',
-    OFFLINE: 'OLLAMA OFFLINE',
+    ACTIVE: 'Inference System Active',
+    DEGRADED: 'System Degraded',
+    OFFLINE: 'Ollama Offline',
   }
 
+  const statusTone =
+    status.status === 'OFFLINE'
+      ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
+      : status.status === 'DEGRADED'
+        ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+
   return (
-    <div className="
-      relative overflow-hidden rounded-2xl
-      bg-[rgba(255,255,255,0.03)]
-      border border-[rgba(237,28,36,0.2)]
-      backdrop-blur-[12px]
-    ">
-      {/* Top AMD accent bar */}
-      <div className="h-[3px] w-full bg-gradient-to-r from-[#ED1C24] via-[#ED1C24] to-[#ED1C24]/40" />
+    <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff,rgba(240,253,250,0.95))] shadow-[0_24px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,#081019,#0f172a)] dark:shadow-none">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rose-500 via-orange-400 to-emerald-400" />
+      <div className="absolute -right-20 top-0 h-48 w-48 rounded-full bg-emerald-200/30 blur-3xl dark:bg-emerald-500/10" />
+      <div className="absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-rose-200/30 blur-3xl dark:bg-rose-500/10" />
 
-      <div className="p-6 lg:p-8">
+      <div className="relative p-6 lg:p-8">
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <StatusDot status={status.status} />
+              <div className="text-[12px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                AMD Runtime Monitor
+              </div>
+            </div>
+            <h2 className="mt-3 text-2xl font-black tracking-[-0.04em] text-slate-900 dark:text-white">
+              {statusLabels[status.status] || 'Unknown State'}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+              Live visibility into inference runtime, local models, privacy posture, and hardware health.
+            </p>
+          </div>
 
-        {/* ─── Status Header ─────────────────────── */}
-        <div className="flex items-center gap-3 mb-6">
-          <StatusDot status={status.status} />
-          <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-white" style={{ fontFamily: "'Syne', 'Outfit', sans-serif" }}>
-            {statusLabels[status.status] || 'UNKNOWN'}
-          </h2>
-          {/* Privacy badge */}
-          <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#6EE7C3]/10 border border-[#6EE7C3]/20">
-            <Shield className="w-3 h-3 text-[#6EE7C3]" />
-            <span className="text-[11px] font-bold text-[#6EE7C3] tracking-wide">100% PRIVATE</span>
+          <div className="flex flex-wrap gap-3">
+            <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] ${statusTone}`}>
+              <Shield className="h-3.5 w-3.5" />
+              {status.privacy_score || '100%'} private
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+              <Cpu className="h-3.5 w-3.5 text-rose-500" />
+              {isAmd ? 'AMD accelerated' : (hw.inference_backend || 'CPU backend')}
+            </div>
           </div>
         </div>
 
-        {/* ─── Two Column Layout ─────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-          {/* LEFT PANEL — Info rows */}
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
-
-            {/* Inference Engine */}
-            <InfoRow
-              icon={<Server className="w-4 h-4" />}
-              label="Inference Engine"
-              value={status.inference_engine}
-            />
-
-            {/* Active Model */}
-            <InfoRow
-              icon={<Zap className="w-4 h-4" />}
-              label="Active Model"
-              value={status.active_model}
-              badge="LOCAL"
-              badgeColor="bg-[#6EE7C3]/10 text-[#6EE7C3] border-[#6EE7C3]/20"
-            />
-
-            {/* Embedding Model */}
-            <InfoRow
-              icon={<HardDrive className="w-4 h-4" />}
-              label="Embedding Model"
-              value={status.embedding_model}
-              badge="LOCAL"
-              badgeColor="bg-[#6EE7C3]/10 text-[#6EE7C3] border-[#6EE7C3]/20"
-            />
-
-            {/* GPU — honest framing */}
-            <InfoRow
-              icon={<MonitorSpeaker className="w-4 h-4" />}
-              label="GPU"
-              value={hw.gpu || 'Unknown'}
-              valueColor={isAmd ? 'text-[#ED1C24]' : 'text-slate-400'}
-            />
-
-            {/* Inference Backend */}
-            <InfoRow
-              icon={<Cpu className="w-4 h-4" />}
-              label="Backend"
-              value={hw.inference_backend || 'CPU'}
-              badge={isAmd ? 'AMD' : null}
-              badgeColor="bg-[#ED1C24]/15 text-[#ED1C24] border-[#ED1C24]/25"
-            />
-
-            {/* ── Cloud Calls: THE HERO STAT ── */}
-            <div className="pt-4 mt-2 border-t border-white/5">
-              <div className="flex items-end gap-3">
-                <span
-                  className="text-[48px] font-[800] leading-none tracking-tight"
-                  style={{
-                    color: '#ED1C24',
-                    fontFamily: "'DM Sans', sans-serif",
-                    transition: 'all 0.5s ease',
-                  }}
-                >
-                  {status.cloud_calls}
-                </span>
-                <div className="pb-2">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider leading-none">
-                    Cloud API Calls
-                  </p>
-                  <p className="text-[10px] text-slate-500 font-medium mt-1">
-                    External calls made
-                  </p>
-                </div>
-              </div>
-
-              {/* F-20: Benchmarks Display */}
-              {benchmarks && (
-                <div className="mt-4 pt-3 border-t border-white/5">
-                  <p className="text-[10px] text-slate-500 font-medium flex gap-2">
-                    <span>Avg response: {benchmarks.avg_query_ms ? (benchmarks.avg_query_ms / 1000).toFixed(1) : '0.0'}s</span>
-                    <span>&bull;</span>
-                    <span>Fastest: {benchmarks.fastest_query_ms ? (benchmarks.fastest_query_ms / 1000).toFixed(1) : '0.0'}s</span>
-                    <span>&bull;</span>
-                    <span>Grade: <span className={benchmarks.performance_grade === 'A' ? 'text-[#6EE7C3] font-bold' : ''}>{benchmarks.performance_grade}</span></span>
-                  </p>
-                </div>
-              )}
+            <div className="grid gap-4 xl:grid-cols-2">
+              <InfoRow icon={<Server className="h-4 w-4" />} label="Inference engine" value={status.inference_engine} />
+              <InfoRow icon={<Zap className="h-4 w-4" />} label="Active model" value={status.active_model} badge="Local" />
+              <InfoRow icon={<HardDrive className="h-4 w-4" />} label="Embedding model" value={status.embedding_model} badge="Local" />
+              <InfoRow
+                icon={<MonitorSpeaker className="h-4 w-4" />}
+                label="GPU"
+                value={hw.gpu || 'Unknown'}
+                valueColor={isAmd ? 'text-rose-600 dark:text-rose-300' : 'text-slate-900 dark:text-white'}
+              />
+              <InfoRow
+                icon={<Cpu className="h-4 w-4" />}
+                label="Backend"
+                value={hw.inference_backend || 'CPU'}
+                badge={isAmd ? 'AMD' : 'Local'}
+                badgeTone={isAmd ? 'rose' : 'emerald'}
+              />
             </div>
 
-            {/* AMD framing note — honest */}
-            {!status.amd_optimised && (
-              <div className="mt-2 p-3 rounded-lg bg-white/[0.03] border border-white/5 text-[11px] text-slate-500 leading-relaxed">
-                <span className="text-slate-400 font-semibold">Running on {hw.gpu || 'CPU'}.</span>{' '}
-                AMD Ryzen AI deployment targets 3-5× faster inference via NPU.
+            <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  Cloud API calls
+                </div>
+                <div className="mt-3 text-6xl font-black leading-none tracking-[-0.05em] text-rose-600 dark:text-rose-400">
+                  {status.cloud_calls}
+                </div>
+                <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+                  External inference requests made
+                </p>
               </div>
-            )}
-            {status.amd_optimised && (
-              <div className="mt-2 p-3 rounded-lg bg-[#ED1C24]/5 border border-[#ED1C24]/15 text-[11px] text-[#ED1C24]/80 leading-relaxed font-semibold">
-                AMD Ryzen AI Active — hardware-accelerated inference
+
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  Performance snapshot
+                </div>
+                {benchmarks ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-900">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Avg response</div>
+                      <div className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+                        {benchmarks.avg_query_ms ? (benchmarks.avg_query_ms / 1000).toFixed(1) : '0.0'}s
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-900">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Fastest</div>
+                      <div className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+                        {benchmarks.fastest_query_ms ? (benchmarks.fastest_query_ms / 1000).toFixed(1) : '0.0'}s
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-900">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Grade</div>
+                      <div className={`mt-1 text-lg font-bold ${benchmarks.performance_grade === 'A' ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-900 dark:text-white'}`}>
+                        {benchmarks.performance_grade || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">Benchmark data not available yet.</div>
+                )}
               </div>
-            )}
+            </div>
+
+            <div className={`rounded-[24px] border px-5 py-4 text-sm leading-relaxed ${
+              status.amd_optimised
+                ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
+                : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
+            }`}>
+              {status.amd_optimised ? (
+                <>AMD Ryzen AI active. Hardware-accelerated inference path is available on this machine.</>
+              ) : (
+                <>
+                  <span className="font-semibold">Running on {hw.gpu || hw.inference_backend || 'CPU'}.</span> AMD Ryzen AI deployment targets faster local inference when dedicated NPU/GPU acceleration is available.
+                </>
+              )}
+            </div>
           </div>
 
-          {/* RIGHT PANEL — Live Gauges */}
-          <div className="flex flex-col items-center justify-center gap-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             {metrics ? (
               <>
-                <ArcGauge
-                  percent={metrics.cpu_percent || 0}
-                  label="CPU Load"
-                  size={130}
-                />
+                <ArcGauge percent={metrics.cpu_percent || 0} label="CPU load" size={145} />
                 <ArcGauge
                   percent={metrics.ram_percent || 0}
                   label="Memory"
                   sublabel={`${metrics.ram_used_gb} GB / ${metrics.ram_total_gb} GB`}
-                  size={130}
+                  size={145}
                 />
-
-                {/* Inference backend badge */}
-                <div className={`
-                  mt-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider
-                  border transition-all duration-300
-                  ${isAmd
-                    ? 'bg-[#ED1C24]/10 border-[#ED1C24]/25 text-[#ED1C24] shadow-[0_0_15px_rgba(237,28,36,0.1)]'
-                    : 'bg-white/5 border-white/10 text-slate-400'
-                  }
-                `}>
-                  {isAmd ? '⚡ AMD ACCELERATED' : `${hw.inference_backend || 'CPU'}`}
-                </div>
               </>
             ) : (
-              <div className="text-sm text-slate-500">Loading metrics…</div>
+              <div className="rounded-[24px] border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                Loading metrics...
+              </div>
             )}
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-
-// ─── Helper: Info Row ─────────────────────────
-function InfoRow({ icon, label, value, badge, badgeColor, valueColor }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <div className="text-slate-500 shrink-0">{icon}</div>
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500 shrink-0">
-          {label}
-        </span>
-      </div>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`text-[13px] font-semibold truncate ${valueColor || 'text-slate-300'}`}
-              style={{ fontFamily: "'DM Sans', sans-serif", transition: 'color 0.5s ease' }}>
-          {value}
-        </span>
-        {badge && (
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badgeColor}`}>
-            {badge}
-          </span>
-        )}
       </div>
     </div>
   )

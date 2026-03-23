@@ -15,23 +15,23 @@ export function LineShadowText({
 
     return (
         <span
-            className={`relative z-0 inline-flex ${className}`}
+            className={`relative z-0 inline-block overflow-visible pb-[0.12em] ${className}`}
             data-text={content}
             {...props}
         >
             {content}
             <motion.span
-                className="absolute top-0 left-0 -z-10 text-transparent pointer-events-none"
+                className="pointer-events-none absolute left-0 top-0 -z-10 text-transparent"
                 style={{
                     WebkitTextStroke: `2px ${shadowColor}`,
                 }}
                 animate={{
-                    x: [0, 4, 0],
+                    x: [0, 5, 0],
                     y: [0, 4, 0]
                 }}
                 transition={{
                     repeat: Infinity,
-                    duration: 1.5,
+                    duration: 1.8,
                     ease: "easeInOut"
                 }}
             >

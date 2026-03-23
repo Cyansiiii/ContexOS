@@ -1,13 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BorderBeam } from "@/components/ui/border-beam"
 import { ScrollMarkerReveal } from "@/components/ui/scroll-marker-reveal"
 import CompetitorTable from './components/CompetitorTable';
 import './Pricing.css';
 
-export default function Pricing() {
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+const PLAN_COPY = {
+    starter: { title: 'Starter', monthly: 4999, yearly: 3749 },
+    growth: { title: 'Growth', monthly: 19999, yearly: 14999 },
+    enterprise: { title: 'Enterprise', monthly: null, yearly: null },
+};
+
+export default function Pricing({ currentUser }) {
     const [isYearly, setIsYearly] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState('upi');
+    const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const [checkoutError, setCheckoutError] = useState('');
+    const [checkoutSuccess, setCheckoutSuccess] = useState('');
+    const [checkoutData, setCheckoutData] = useState(null);
+    const [form, setForm] = useState({
+        customer_name: '',
+        customer_email: '',
+        account_identifier: '',
+        reference: '',
+    });
 
     const containerVariants = {
         hidden: {},
@@ -67,9 +87,57 @@ export default function Pricing() {
         </span>
     );
 
+    useEffect(() => {
+        if (!selectedPlan) return;
+        setCheckoutError('');
+        setCheckoutSuccess('');
+        setCheckoutData(null);
+        setPaymentMethod(selectedPlan === 'enterprise' ? 'contact' : 'upi');
+        setForm({
+            customer_name: currentUser?.name || '',
+            customer_email: currentUser?.email || '',
+            account_identifier: '',
+            reference: '',
+        });
+    }, [selectedPlan, currentUser]);
+
+    const activePlan = selectedPlan ? PLAN_COPY[selectedPlan] : null;
+    const activeAmount = useMemo(() => {
+        if (!activePlan) return null;
+        if (selectedPlan === 'enterprise') return null;
+        return isYearly ? activePlan.yearly : activePlan.monthly;
+    }, [activePlan, isYearly, selectedPlan]);
+
     const handleSelect = (plan) => {
         setSelectedPlan(plan);
-        setTimeout(() => setSelectedPlan(null), 2000);
+    };
+
+    const handleCheckout = async () => {
+        if (!selectedPlan) return;
+
+        setCheckoutLoading(true);
+        setCheckoutError('');
+        setCheckoutSuccess('');
+
+        try {
+            const payload = {
+                plan: selectedPlan,
+                billing_cycle: isYearly ? 'yearly' : 'monthly',
+                payment_method: selectedPlan === 'enterprise' ? 'contact' : paymentMethod,
+                customer_name: form.customer_name.trim(),
+                customer_email: form.customer_email.trim(),
+                account_identifier: form.account_identifier.trim() || null,
+                reference: form.reference.trim() || null,
+            };
+
+            const { data } = await axios.post(`${API}/checkout/session`, payload);
+            setCheckoutData(data);
+            setCheckoutSuccess(data.message || 'Checkout started successfully.');
+        } catch (error) {
+            setCheckoutError(error.response?.data?.detail || 'Unable to start checkout right now.');
+        } finally {
+            setCheckoutLoading(false);
+        }
     };
 
     return (
@@ -188,7 +256,7 @@ export default function Pricing() {
                     whileHover="hover"
                 >
                     <BorderBeam duration={8} size={300} reverse className="from-transparent via-purple-500 to-transparent" />
-                    <div className="plan-badge">⚡ Most Popular</div>
+                    <div className="plan-badge">MOST POPULAR</div>
                     <div className="plan-icon growth">🧠</div>
                     <div className="plan-name">Growth</div>
                     <div className="plan-desc">For growing teams that need shared memory, auto-capture, and smart onboarding.</div>
@@ -267,8 +335,8 @@ export default function Pricing() {
                     <div className="plan-desc">For large organisations needing total control, custom SLAs, and hardware bundles.</div>
 
                     <div className="price-block">
-                        <div className="price-amount" style={{ fontSize: '42px', minHeight: '48px', alignItems: 'center' }}>Custom</div>
-                        <div className="price-period">Contact us for a quote · unlimited users</div>
+                        <div className="price-amount" style={{ fontSize: '42px', minHeight: '48px', alignItems: 'center' }}><span className="price-currency">₹</span>75,000+</div>
+                        <div className="price-period">per month · unlimited users with SLA</div>
                     </div>
 
                     <div className="enterprise-highlight">
@@ -330,6 +398,137 @@ export default function Pricing() {
                     Powered by AMD Ryzen AI
                 </div>
             </motion.div>
+
+            <AnimatePresence>
+                {selectedPlan && activePlan ? (
+                    <motion.div
+                        className="checkout-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <motion.div
+                            className="checkout-modal"
+                            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+                        >
+                            <div className="checkout-header">
+                                <div>
+                                    <div className="checkout-kicker">Checkout</div>
+                                    <h3>{activePlan.title} Plan</h3>
+                                    <p>
+                                        {selectedPlan === 'enterprise'
+                                            ? 'Share your contact details and preferred payment mode. We will follow up with a custom proposal.'
+                                            : 'Pick a payment method and create your local-first checkout request.'}
+                                    </p>
+                                </div>
+                                <button className="checkout-close" type="button" onClick={() => setSelectedPlan(null)}>×</button>
+                            </div>
+
+                            <div className="checkout-summary">
+                                <div>
+                                    <span>Plan</span>
+                                    <strong>{activePlan.title}</strong>
+                                </div>
+                                <div>
+                                    <span>Billing</span>
+                                    <strong>{isYearly ? 'Yearly' : 'Monthly'}</strong>
+                                </div>
+                                <div>
+                                    <span>Amount</span>
+                                    <strong>{activeAmount ? `₹${activeAmount.toLocaleString('en-IN')}` : 'Custom quote'}</strong>
+                                </div>
+                            </div>
+
+                            <div className="payment-methods">
+                                {(selectedPlan === 'enterprise'
+                                    ? [{ id: 'contact', label: 'Contact Sales' }]
+                                    : [
+                                        { id: 'upi', label: 'UPI' },
+                                        { id: 'card', label: 'Card' },
+                                        { id: 'netbanking', label: 'Netbanking' },
+                                    ]
+                                ).map((method) => (
+                                    <button
+                                        key={method.id}
+                                        type="button"
+                                        className={`payment-method ${paymentMethod === method.id ? 'active' : ''}`}
+                                        onClick={() => setPaymentMethod(method.id)}
+                                    >
+                                        {method.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className={selectedPlan === 'enterprise' ? 'enterprise-contact' : 'payment-form'}>
+                                <div className="payment-grid">
+                                    <div className="payment-field">
+                                        <label>Full Name</label>
+                                        <input
+                                            type="text"
+                                            value={form.customer_name}
+                                            onChange={(event) => setForm((prev) => ({ ...prev, customer_name: event.target.value }))}
+                                            placeholder="Anandam"
+                                        />
+                                    </div>
+                                    <div className="payment-field">
+                                        <label>Email</label>
+                                        <input
+                                            type="email"
+                                            value={form.customer_email}
+                                            onChange={(event) => setForm((prev) => ({ ...prev, customer_email: event.target.value }))}
+                                            placeholder="name@company.com"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="payment-grid">
+                                    <div className="payment-field">
+                                        <label>{paymentMethod === 'upi' ? 'UPI ID' : paymentMethod === 'card' ? 'Card Holder / Billing Name' : paymentMethod === 'netbanking' ? 'Bank / Account Name' : 'Company / Team Name'}</label>
+                                        <input
+                                            type="text"
+                                            value={form.account_identifier}
+                                            onChange={(event) => setForm((prev) => ({ ...prev, account_identifier: event.target.value }))}
+                                            placeholder={paymentMethod === 'upi' ? 'name@upi' : paymentMethod === 'card' ? 'Billing name' : paymentMethod === 'netbanking' ? 'HDFC / ICICI / SBI' : 'ContextOS Labs'}
+                                        />
+                                    </div>
+                                    <div className="payment-field">
+                                        <label>{selectedPlan === 'enterprise' ? 'Reference / Requirements' : 'Reference Note'}</label>
+                                        <input
+                                            type="text"
+                                            value={form.reference}
+                                            onChange={(event) => setForm((prev) => ({ ...prev, reference: event.target.value }))}
+                                            placeholder={selectedPlan === 'enterprise' ? 'Seats, SLA, deployment notes' : 'Optional memo'}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {checkoutError ? <div className="checkout-success checkout-error">{checkoutError}</div> : null}
+                            {checkoutSuccess ? (
+                                <div className="checkout-success">
+                                    {checkoutSuccess}
+                                    {checkoutData?.request_id ? ` Request ID: ${checkoutData.request_id}` : ''}
+                                </div>
+                            ) : null}
+
+                            <div className="checkout-actions">
+                                <button className="checkout-secondary" type="button" onClick={() => setSelectedPlan(null)}>
+                                    Cancel
+                                </button>
+                                <button className="checkout-primary" type="button" onClick={handleCheckout} disabled={checkoutLoading}>
+                                    {checkoutLoading
+                                        ? 'Submitting...'
+                                        : selectedPlan === 'enterprise'
+                                            ? 'Send Sales Request'
+                                            : `Pay via ${paymentMethod === 'upi' ? 'UPI' : paymentMethod === 'card' ? 'Card' : 'Netbanking'}`}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
         </section>
     );
 }

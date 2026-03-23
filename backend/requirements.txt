@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 python-dotenv
+python-multipart
 pydantic>=2.7.4
 requests
 httpx
@@ -13,3 +14,5 @@ google-auth-httplib2==0.2.0
 google-api-python-client==2.126.0
 beautifulsoup4==4.12.3
 psutil==5.9.8
+pypdf
+python-docx

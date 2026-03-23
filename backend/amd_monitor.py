@@ -236,7 +236,13 @@ def get_inference_status() -> dict:
     )
 
     # Active model display names
-    active_model = "Mistral 7B (local)"
+    loaded_models = [model.lower() for model in ollama["models"]]
+    if any("mistral" in model for model in loaded_models):
+        active_model = "Mistral 7B (local)"
+    elif any("phi3" in model for model in loaded_models):
+        active_model = "Phi-3 Mini (local)"
+    else:
+        active_model = "Local model not loaded"
     embedding_model = "nomic-embed-text (local)"
 
     return {

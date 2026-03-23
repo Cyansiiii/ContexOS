@@ -90,7 +90,6 @@
 }
 
 @keyframes pulse-center {
-
   0%,
   100% {
     box-shadow: 0 0 0 12px rgba(124, 58, 237, 0.12), 0 0 0 24px rgba(124, 58, 237, 0.06), 0 20px 60px rgba(124, 58, 237, 0.35);
@@ -194,7 +193,6 @@
 .app-card:hover::after {
   opacity: 1;
 }
-
 
 .card-gmail {
   animation: orbit-card-1a 18s linear infinite;
@@ -470,7 +468,6 @@
 }
 
 @keyframes blink {
-
   0%,
   100% {
     opacity: 1;

@@ -30,6 +30,13 @@ from ai_engine import vectorstore, embeddings
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), "gmail_token.json")
 BACKEND_DIR = os.path.dirname(__file__)
+PLACEHOLDER_GOOGLE_VALUES = {
+    "",
+    "your_google_client_id",
+    "your_google_client_secret",
+    "your-google-client-id",
+    "your-google-client-secret",
+}
 
 # Sync metadata file — persists last-sync timestamp & email count
 SYNC_META_PATH = os.path.join(BACKEND_DIR, "gmail_sync_meta.json")
@@ -49,6 +56,11 @@ def _load_env():
 def _client_config():
     """Build the client config dict expected by google-auth-oauthlib."""
     client_id, client_secret, redirect_uri = _load_env()
+    if not client_id or not client_secret or client_id in PLACEHOLDER_GOOGLE_VALUES or client_secret in PLACEHOLDER_GOOGLE_VALUES:
+        raise ValueError(
+            "Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, "
+            "and GOOGLE_REDIRECT_URI in backend/.env."
+        )
     return {
         "web": {
             "client_id": client_id,

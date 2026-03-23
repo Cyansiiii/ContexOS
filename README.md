@@ -57,6 +57,26 @@ uvicorn main:app --reload
 ```
 *The backend API will run on `http://localhost:8000`*
 
+### 3.1 Enable Razorpay Test Checkout
+To enable real Razorpay test-mode checkout for the pricing modal:
+```bash
+cd backend
+cp .env.example .env
+```
+Then edit `backend/.env` and set:
+```env
+RAZORPAY_KEY_ID=rzp_test_your_key_id
+RAZORPAY_KEY_SECRET=your_test_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+```
+Restart the backend after saving the file. If these keys are not set, ContextOS falls back to the built-in stub checkout flow.
+
+For Razorpay test webhooks, point the webhook URL to:
+```text
+http://localhost:8000/checkout/webhook
+```
+and use the same `RAZORPAY_WEBHOOK_SECRET` value from `backend/.env`.
+
 ### 3.5 Load Demo Data (Important!)
 With the backend running, open a new terminal and run:
 ` ` `bash

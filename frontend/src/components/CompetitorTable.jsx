@@ -1,195 +1,177 @@
-import React from 'react';
-import { Check, X, AlertTriangle } from 'lucide-react';
+import React from 'react'
+import { Check, X, AlertTriangle } from 'lucide-react'
 
 export default function CompetitorTable() {
   const comparisonData = [
     {
-      feature: "Data Privacy",
-      contextOS: { type: "check", text: "Full offline" },
-      notion: { type: "warning", text: "Partial" },
-      confluence: { type: "warning", text: "Partial" },
-      glean: { type: "cross", text: "Cloud only" },
+      feature: 'Data Privacy',
+      contextOS: { type: 'check', text: 'Full offline' },
+      notion: { type: 'warning', text: 'Partial' },
+      confluence: { type: 'warning', text: 'Partial' },
+      glean: { type: 'cross', text: 'Cloud only' },
     },
     {
-      feature: "Hardware Acceleration",
-      contextOS: { type: "check", text: "Native" },
-      notion: { type: "cross", text: "No" },
-      confluence: { type: "cross", text: "No" },
-      glean: { type: "cross", text: "No" },
+      feature: 'Hardware Acceleration',
+      contextOS: { type: 'check', text: 'Native' },
+      notion: { type: 'cross', text: 'No' },
+      confluence: { type: 'cross', text: 'No' },
+      glean: { type: 'cross', text: 'No' },
     },
     {
-      feature: "DPDP Act Compliant",
-      contextOS: { type: "check", text: "By design" },
-      notion: { type: "warning", text: "Partial" },
-      confluence: { type: "warning", text: "Partial" },
-      glean: { type: "warning", text: "Partial" },
+      feature: 'DPDP Act Compliant',
+      contextOS: { type: 'check', text: 'By design' },
+      notion: { type: 'warning', text: 'Partial' },
+      confluence: { type: 'warning', text: 'Partial' },
+      glean: { type: 'warning', text: 'Partial' },
     },
     {
-      feature: "On-Device Inference",
-      contextOS: { type: "check", text: "Always" },
-      notion: { type: "cross", text: "Never" },
-      confluence: { type: "cross", text: "Never" },
-      glean: { type: "cross", text: "Never" },
+      feature: 'On-Device Inference',
+      contextOS: { type: 'check', text: 'Always' },
+      notion: { type: 'cross', text: 'Never' },
+      confluence: { type: 'cross', text: 'Never' },
+      glean: { type: 'cross', text: 'Never' },
     },
     {
-      feature: "Integration Sync",
-      contextOS: { type: "check", text: "Automatic" },
-      notion: { type: "cross", text: "Manual" },
-      confluence: { type: "cross", text: "Manual" },
-      glean: { type: "check", text: "Automatic" },
+      feature: 'Integration Sync',
+      contextOS: { type: 'check', text: 'Automatic' },
+      notion: { type: 'cross', text: 'Manual' },
+      confluence: { type: 'cross', text: 'Manual' },
+      glean: { type: 'check', text: 'Automatic' },
     },
     {
-      feature: "Recurring AI Costs",
-      contextOS: { type: "cross", text: "None" }, // Wait, the instructions say ContextOS column should be all positive/green. "None" is a positive thing for costs. I will format it as check + None.
-      notion: { type: "cross", text: "High" },
-      confluence: { type: "cross", text: "High" },
-      glean: { type: "cross", text: "High" },
-    }
-  ];
-
-  // Adjust "None" for ContextOS to be a checkmark based on instructions ("Values in this column are positive/green")
-  comparisonData[5].contextOS = { type: "check", text: "None" };
+      feature: 'Recurring AI Costs',
+      contextOS: { type: 'check', text: 'None' },
+      notion: { type: 'cross', text: 'High' },
+      confluence: { type: 'cross', text: 'High' },
+      glean: { type: 'cross', text: 'High' },
+    },
+  ]
 
   const pricingData = [
     {
-      feature: "Cost (50 Users)",
-      contextOS: { type: "price", text: "₹19,999/mo" },
-      notion: { type: "price", text: "₹1,25,000/mo" },
-      confluence: { type: "price", text: "₹85,000/mo" },
-      glean: { type: "price", text: "Custom Enterprise" },
-    }
-  ];
+      feature: 'Cost (50 Users)',
+      contextOS: { type: 'price', text: '₹19,999/mo' },
+      notion: { type: 'price', text: '₹1,25,000/mo' },
+      confluence: { type: 'price', text: '₹85,000/mo' },
+      glean: { type: 'price', text: 'Custom Enterprise' },
+    },
+  ]
 
   const renderCell = (data, isContextOS = false) => {
     if (data.type === 'price') {
-      return <span className={`font-semibold ${isContextOS ? 'text-[#6EE7C3]' : 'text-white'}`}>{data.text}</span>;
+      return (
+        <span className={`font-semibold ${isContextOS ? 'text-[#ED1C24] dark:text-rose-300' : 'text-slate-800 dark:text-slate-100'}`}>
+          {data.text}
+        </span>
+      )
     }
 
-    if (isContextOS) {
-      // All items in ContextOS column are green
+    const baseClasses = 'flex items-center justify-center gap-2'
+
+    if (isContextOS || data.type === 'check') {
       return (
-        <div className="flex justify-center items-center gap-2 text-[#6EE7C3]">
-          <Check className="w-4 h-4" />
+        <div className={`${baseClasses} text-emerald-700 dark:text-emerald-300`}>
+          <Check className="h-4 w-4" />
           <span className="text-sm font-medium">{data.text}</span>
         </div>
-      );
+      )
     }
 
-    if (data.type === 'check') {
-      return (
-        <div className="flex justify-center items-center gap-2 text-[#6EE7C3]">
-          <Check className="w-4 h-4" />
-          <span className="text-sm font-medium">{data.text}</span>
-        </div>
-      );
-    }
     if (data.type === 'cross') {
       return (
-        <div className="flex justify-center items-center gap-2 text-[#ef4444]">
-          <X className="w-4 h-4" />
+        <div className={`${baseClasses} text-rose-600 dark:text-rose-400`}>
+          <X className="h-4 w-4" />
           <span className="text-sm font-medium">{data.text}</span>
         </div>
-      );
+      )
     }
+
     if (data.type === 'warning') {
       return (
-        <div className="flex justify-center items-center gap-2 text-[#f59e0b]">
-          <AlertTriangle className="w-4 h-4" />
+        <div className={`${baseClasses} text-amber-600 dark:text-amber-400`}>
+          <AlertTriangle className="h-4 w-4" />
           <span className="text-sm font-medium">{data.text}</span>
         </div>
-      );
+      )
     }
 
-    return null;
-  };
+    return null
+  }
+
+  const rows = [...comparisonData, ...pricingData]
 
   return (
-    <div className="w-full max-w-5xl mx-auto my-16 px-4">
-      
-      {/* Table Title Block */}
-      <div className="text-center mb-8">
-        <h2 className="text-[28px] font-bold text-white mb-2 font-['Syne']">How We Compare</h2>
-        <p className="text-[#7a90a8] text-[14px] max-w-2xl mx-auto leading-relaxed">
+    <div className="mx-auto my-16 w-full max-w-5xl px-4">
+      <div className="mb-8 text-center">
+        <h2 className="mb-2 font-['Syne'] text-[28px] font-bold text-slate-900 dark:text-white">How We Compare</h2>
+        <p className="mx-auto max-w-2xl text-[14px] leading-relaxed text-slate-600 dark:text-slate-400">
           Unlike legacy cloud tools, ContextOS runs on your own hardware, ensuring complete privacy and zero recurring AI cloud costs.
         </p>
       </div>
 
-      {/* Main Table Container */}
-      <div className="w-full overflow-x-auto rounded-[16px] border border-[#ED1C24]/20 bg-[#0f1520] hide-scrollbar mb-8">
+      <div className="mb-8 w-full overflow-x-auto rounded-[20px] border border-slate-200 bg-white/95 shadow-[0_18px_50px_rgba(15,23,42,0.08)] hide-scrollbar dark:border-white/10 dark:bg-[#0f1520] dark:shadow-none">
         <div className="min-w-[800px]">
-          {/* Header */}
-          <div className="flex bg-[#161e2d] h-[60px] border-b border-white/5">
-            <div className="w-[200px] shrink-0 flex items-center px-6 font-bold text-white text-sm sticky left-0 bg-[#161e2d] z-10 border-r border-white/5">
+          <div className="flex h-[60px] border-b border-slate-200 bg-slate-50 dark:border-white/5 dark:bg-[#161e2d]">
+            <div className="sticky left-0 z-10 flex w-[200px] shrink-0 items-center border-r border-slate-200 bg-slate-50 px-6 text-sm font-bold text-slate-900 dark:border-white/5 dark:bg-[#161e2d] dark:text-white">
               Feature
             </div>
-            
-            <div className="flex-1 min-w-[160px] flex flex-col justify-center items-center relative bg-[rgba(237,28,36,0.06)] border-r border-white/5">
-              <span className="absolute top-1 text-[9px] font-bold text-[#ED1C24] uppercase tracking-wider bg-[#ED1C24]/10 px-1.5 py-0.5 rounded">You</span>
-              <span className="text-[#ED1C24] font-bold text-sm mt-3">ContextOS</span>
+            <div className="relative flex min-w-[160px] flex-1 flex-col items-center justify-center border-r border-slate-200 bg-rose-50 dark:border-white/5 dark:bg-[#ED1C24]/10">
+              <span className="absolute top-1 rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#ED1C24] dark:bg-[#ED1C24]/10 dark:text-rose-300">
+                You
+              </span>
+              <span className="mt-3 text-sm font-bold text-[#ED1C24] dark:text-rose-300">ContextOS</span>
             </div>
-            
-            <div className="flex-1 min-w-[160px] flex items-center justify-center font-bold text-[#7a90a8] text-sm border-r border-white/5">
+            <div className="flex min-w-[160px] flex-1 items-center justify-center border-r border-slate-200 text-sm font-bold text-slate-500 dark:border-white/5 dark:text-slate-400">
               Notion AI
             </div>
-            
-            <div className="flex-1 min-w-[160px] flex items-center justify-center font-bold text-[#7a90a8] text-sm border-r border-white/5">
+            <div className="flex min-w-[160px] flex-1 items-center justify-center border-r border-slate-200 text-sm font-bold text-slate-500 dark:border-white/5 dark:text-slate-400">
               Confluence
             </div>
-            
-            <div className="flex-1 min-w-[160px] flex items-center justify-center font-bold text-[#7a90a8] text-sm">
+            <div className="flex min-w-[160px] flex-1 items-center justify-center text-sm font-bold text-slate-500 dark:text-slate-400">
               Glean
             </div>
           </div>
 
-          {/* Body Rows */}
-          {[...comparisonData, ...pricingData].map((row, i) => {
-            const isPricing = i === comparisonData.length;
-            
+          {rows.map((row, index) => {
+            const isPricing = index === comparisonData.length
             return (
-              <div 
-                key={i} 
-                className={`flex h-[48px] hover:bg-white/[0.02] transition-colors ${
-                  i < [...comparisonData, ...pricingData].length - 1 ? 'border-b border-white/5' : ''
-                } ${isPricing ? 'bg-white/[0.01]' : ''}`}
+              <div
+                key={row.feature}
+                className={`flex h-[48px] transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.02] ${index < rows.length - 1 ? 'border-b border-slate-200 dark:border-white/5' : ''} ${isPricing ? 'bg-slate-50/70 dark:bg-white/[0.01]' : ''}`}
               >
-                <div className="w-[200px] shrink-0 flex items-center px-6 text-white text-[14px] sticky left-0 bg-[#0f1520] group-hover:bg-[#121926] transition-colors border-r border-white/5 z-10">
+                <div className="sticky left-0 z-10 flex w-[200px] shrink-0 items-center border-r border-slate-200 bg-white px-6 text-[14px] text-slate-800 dark:border-white/5 dark:bg-[#0f1520] dark:text-white">
                   {row.feature}
                 </div>
-                
-                <div className="flex-1 min-w-[160px] flex items-center justify-center bg-[rgba(237,28,36,0.06)] border-r border-white/5">
+                <div className="flex min-w-[160px] flex-1 items-center justify-center border-r border-slate-200 bg-rose-50/80 dark:border-white/5 dark:bg-[#ED1C24]/5">
                   {renderCell(row.contextOS, true)}
                 </div>
-                
-                <div className="flex-1 min-w-[160px] flex items-center justify-center border-r border-white/5">
+                <div className="flex min-w-[160px] flex-1 items-center justify-center border-r border-slate-200 dark:border-white/5">
                   {renderCell(row.notion)}
                 </div>
-                
-                <div className="flex-1 min-w-[160px] flex items-center justify-center border-r border-white/5">
+                <div className="flex min-w-[160px] flex-1 items-center justify-center border-r border-slate-200 dark:border-white/5">
                   {renderCell(row.confluence)}
                 </div>
-                
-                <div className="flex-1 min-w-[160px] flex items-center justify-center">
+                <div className="flex min-w-[160px] flex-1 items-center justify-center">
                   {renderCell(row.glean)}
                 </div>
               </div>
-            );
+            )
           })}
         </div>
       </div>
 
-      {/* Savings Callout */}
-      <div className="max-w-3xl mx-auto bg-[rgba(110,231,195,0.08)] border border-[#6EE7C3]/30 rounded-xl p-5 md:p-6 text-center shadow-lg font-['DM_Sans']">
-        <p className="text-white text-[14px] leading-relaxed mb-3">
-          At 50 users, ContextOS costs ₹19,999/month.<br className="hidden sm:block"/>
+      <div className="mx-auto max-w-3xl rounded-[22px] border border-[#ED1C24]/20 bg-gradient-to-br from-rose-50 via-white to-emerald-50 p-5 text-center shadow-[0_16px_40px_rgba(237,28,36,0.1)] font-['DM_Sans'] md:p-6 dark:border-[#ED1C24]/20 dark:bg-[linear-gradient(135deg,rgba(237,28,36,0.12),rgba(15,23,42,0.92))] dark:shadow-none">
+        <p className="mb-3 text-[14px] leading-relaxed text-slate-700 dark:text-slate-100">
+          At 50 users, ContextOS costs ₹19,999/month.
+          <br className="hidden sm:block" />
           Notion AI costs ₹1,25,000/month for the same team.
         </p>
-        <p className="text-white text-[14px] flex flex-col sm:flex-row items-center justify-center gap-2">
+        <p className="flex flex-col items-center justify-center gap-2 text-[14px] text-slate-800 dark:text-white sm:flex-row">
           <span>That is</span>
-          <span className="text-[#6EE7C3] text-[24px] font-bold tracking-tight shadow-[#6EE7C3]/20 drop-shadow-md">₹1,05,001</span>
+          <span className="text-[24px] font-bold tracking-tight text-emerald-700 dark:text-emerald-300">₹1,05,001</span>
           <span>saved every month.</span>
         </p>
       </div>
-
     </div>
-  );
+  )
 }
