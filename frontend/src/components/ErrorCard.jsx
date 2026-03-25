@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CheckCircle2, X, AlertTriangle } from 'lucide-react'
+import { X } from 'lucide-react'
 
 const ERROR_CONFIGS = {
   OLLAMA_OFFLINE: { emoji: '🔴', title: 'AI Engine Offline', cmdHint: 'ollama serve' },

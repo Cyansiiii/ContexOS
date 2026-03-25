@@ -4,6 +4,8 @@ __pycache__/
 *.pyo
 venv/
 .env
+.env.local
+.env.*.local
 
 # Gmail OAuth token — NEVER commit this
 gmail_token.json

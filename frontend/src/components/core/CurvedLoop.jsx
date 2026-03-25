@@ -1,6 +1,4 @@
 import { useRef, useEffect, useState, useMemo, useId } from 'react';
-
-/* eslint-disable react/prop-types */
 const CurvedLoop = ({
     marqueeText = '',
     speed = 2,

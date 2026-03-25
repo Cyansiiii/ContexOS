@@ -1,8 +1,20 @@
-# React + Vite
+# Frontend Deployment Notes
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Local setup
 
-Currently, two official plugins are available:
+1. Copy `.env.example` to `.env`
+2. Set `VITE_API_URL` to your backend URL
+3. Run `npm install`
+4. Run `npm run dev`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Production
+
+- Set `VITE_API_URL` in your hosting provider to the public backend URL
+- Build with `npm run build`
+- Preview with `npm run preview`
+
+## Current assumptions
+
+- Frontend expects a reachable FastAPI backend
+- Gmail OAuth callback returns the user to `FRONTEND_APP_URL/?tab=upload&gmail=connected`
+- Memory Hub, Analytics, Pricing, and auth flows all depend on `VITE_API_URL` being correct

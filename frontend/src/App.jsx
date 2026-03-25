@@ -5,9 +5,9 @@ import { BorderBeam } from "@/components/ui/border-beam"
 import {
   Search, Database, MessageSquare, BrainCircuit,
   Activity, UploadCloud, Zap, Menu, X, Shield,
-  CheckCircle2, ShieldCheck, Sparkles, Files, Briefcase,
-  Bell, Clock, ArrowUpRight, Plus, MoreHorizontal, Video, FileText, CheckCircle, Github,
-  UserRound, Save, LogOut, ChevronDown, Mail, CalendarDays, CreditCard, BarChart3, Cpu
+  CheckCircle2, ShieldCheck, Sparkles, Files,
+  Bell, Clock, ArrowUpRight, Plus, Video, CheckCircle, Github,
+  UserRound, Save, LogOut, ChevronDown, Mail, CalendarDays, CreditCard, BarChart3, Cpu, Settings, CircleHelp
 } from 'lucide-react'
 
 const AuthPage = lazy(() => import('./AuthPage'))
@@ -36,8 +36,20 @@ const FLOATING_CHATS = [
   { text: "Priya is the lead for Acme Corp.", type: "a", icon: <CheckCircle2 className="w-4 h-4 text-emerald-500" />, delayMs: 2500, pos: "top-32 right-0 lg:-right-12" },
 ]
 
+
 function App() {
   const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const defaultUploadLabel = useCallback((source) => (
+    source === 'document'
+      ? 'Internal_Q4_Strategy'
+      : source === 'email'
+        ? 'Inbox_Context_Import'
+        : source === 'meeting_notes'
+          ? 'Weekly_Product_Meeting'
+          : source === 'slack'
+            ? 'Slack_Context_Import'
+            : 'Decision_Record'
+  ), [])
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const storedUser = window.localStorage.getItem('contextos-user')
@@ -59,12 +71,14 @@ function App() {
     return params.get('tab') === 'upload' ? 'upload' : 'search'
   })
   const [activityPeriod, setActivityPeriod] = useState('Week')
-  const [statKey, setStatKey] = useState(0)
-  useEffect(() => { setStatKey(k => k + 1) }, [activityPeriod, activeTab])
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [appNotice, setAppNotice] = useState('')
 
   // Upload state
   const [uploadContent, setUploadContent] = useState('')
   const [uploadSource, setUploadSource] = useState('document')
+  const [uploadSourceLabel, setUploadSourceLabel] = useState('Internal_Q4_Strategy')
+  const [selectedUploadFile, setSelectedUploadFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [onboardingRunning, setOnboardingRunning] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -103,6 +117,7 @@ function App() {
   // F-20: Benchmarks
   const [benchmarks, setBenchmarks] = useState(null)
   const [dashboardMeeting, setDashboardMeeting] = useState(null)
+  const [analyticsOverview, setAnalyticsOverview] = useState(null)
 
   // F-16: Mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -121,6 +136,7 @@ function App() {
   })
   const profileMenuRef = useRef(null)
   const avatarInputRef = useRef(null)
+  const memoryFileInputRef = useRef(null)
   const hasMountedRef = useRef(false)
 
   // F-14: Poll /stats every 30s
@@ -165,6 +181,10 @@ function App() {
     axios.get(`${API}/benchmarks`).then(({ data }) => setBenchmarks(data)).catch(() => {})
   }, [API])
 
+  const fetchAnalyticsOverview = useCallback(() => {
+    axios.get(`${API}/analytics/overview`).then(({ data }) => setAnalyticsOverview(data)).catch(() => {})
+  }, [API])
+
   useEffect(() => {
     fetchBenchmarks()
   }, [fetchBenchmarks])
@@ -172,6 +192,22 @@ function App() {
   useEffect(() => {
     axios.get(`${API}/dashboard/meeting`).then(({ data }) => setDashboardMeeting(data)).catch(() => {})
   }, [API])
+
+  useEffect(() => {
+    fetchAnalyticsOverview()
+    const interval = setInterval(fetchAnalyticsOverview, 30000)
+    return () => clearInterval(interval)
+  }, [fetchAnalyticsOverview])
+
+  useEffect(() => {
+    if (!appNotice) return undefined
+    const timeoutId = window.setTimeout(() => setAppNotice(''), 3500)
+    return () => window.clearTimeout(timeoutId)
+  }, [appNotice])
+
+  useEffect(() => {
+    setUploadSourceLabel(defaultUploadLabel(uploadSource))
+  }, [defaultUploadLabel, uploadSource])
 
   // F-13: Relative time helper
   const relativeTime = useCallback((isoStr) => {
@@ -367,6 +403,40 @@ function App() {
     }, 120)
   }
 
+  const focusWorkspaceSearch = () => {
+    setActiveTab('search')
+    setMobileMenuOpen(false)
+    window.setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 160)
+  }
+
+  const handleNewChat = () => {
+    setQuestion('')
+    setAnswer('')
+    setSources([])
+    setConfidence('')
+    setChunksSearched(0)
+    setResponseTime(null)
+    setExpertResult(null)
+    setErrorData(null)
+    setSearchMode('ask')
+    focusWorkspaceSearch()
+    setAppNotice('Ready for a new conversation.')
+  }
+
+  const openHelp = () => {
+    setAppNotice('Opening deployment and setup guide in a new tab.')
+    window.open('https://github.com/Cyansiiii/ContextOS/blob/main/DEPLOYMENT.md', '_blank', 'noopener,noreferrer')
+  }
+
+  const openSettings = () => {
+    setProfileOpen(true)
+    setProfileMenuOpen(false)
+    setAppNotice('Profile and workspace settings opened.')
+  }
+
   const renderAvatar = (className, textClassName = 'text-xs') => (
     avatarUrl ? (
       <img src={avatarUrl} alt={currentUser?.name || 'Profile'} className={`${className} object-cover`} />
@@ -414,6 +484,29 @@ function App() {
       // Keep the UI responsive even if the backend clear call fails.
     }
     setQueryHistory([])
+    fetchAnalyticsOverview()
+  }
+
+  const handleUploadFileSelect = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setSelectedUploadFile(file)
+    setUploadMessage('')
+  }
+
+  const handleUploadDrop = (event) => {
+    event.preventDefault()
+    const file = event.dataTransfer?.files?.[0]
+    if (!file) return
+    setSelectedUploadFile(file)
+    setUploadMessage('')
+  }
+
+  const clearSelectedUploadFile = () => {
+    setSelectedUploadFile(null)
+    if (memoryFileInputRef.current) {
+      memoryFileInputRef.current.value = ''
+    }
   }
 
 
@@ -430,11 +523,8 @@ function App() {
     setExpertResult(null)
     setErrorData(null)
 
-    const t0 = performance.now()
-
     try {
       const response = await axios.post(`${API}/ask`, { question })
-      const elapsed = ((performance.now() - t0) / 1000).toFixed(1)
 
       // F-15: Check for structured error in response
       if (response.data.error) {
@@ -450,6 +540,7 @@ function App() {
       
       // Update benchmarks after a query
       fetchBenchmarks()
+      fetchAnalyticsOverview()
     } catch (error) {
       console.error(error)
       setErrorData({
@@ -490,22 +581,36 @@ function App() {
 
   // ── F-10: Enhanced Upload with content_type ──
   const handleUpload = async () => {
-    if (!uploadContent.trim()) return;
+    if (!uploadContent.trim() && !selectedUploadFile) return;
     setUploading(true);
     setUploadMessage('');
     try {
-      await axios.post(`${API}/upload`, {
-        content: uploadContent,
-        source: uploadSource,
-        date: new Date().toISOString(),
-        content_type: uploadSource,
-        author: 'team',
-      });
-      setUploadMessage('Memory stored successfully!');
+      if (selectedUploadFile) {
+        const formData = new FormData()
+        formData.append('file', selectedUploadFile)
+        formData.append('source', uploadSource)
+        formData.append('date', new Date().toISOString())
+        formData.append('content', uploadContent)
+        const { data } = await axios.post(`${API}/upload-file`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        setUploadMessage(data?.status ? `${data.status}: ${selectedUploadFile.name}` : `Uploaded ${selectedUploadFile.name}`)
+        clearSelectedUploadFile()
+      } else {
+        await axios.post(`${API}/upload`, {
+          content: uploadContent,
+          source: uploadSourceLabel.trim() || uploadSource,
+          date: new Date().toISOString(),
+          content_type: uploadSource,
+          author: 'team',
+        });
+        setUploadMessage('Memory stored successfully!');
+      }
       setUploadContent('');
+      fetchAnalyticsOverview()
     } catch (error) {
       console.error(error);
-      setUploadMessage('Failed to upload memory.');
+      setUploadMessage(error.response?.data?.detail || 'Failed to upload memory.');
     }
     setUploading(false);
   }
@@ -533,6 +638,7 @@ function App() {
       setDecisionRejected('');
       setDecisionWho('');
       setDecisionTags('');
+      fetchAnalyticsOverview()
     } catch (error) {
       console.error(error);
       setDecisionMsg('Failed to store decision.');
@@ -581,6 +687,7 @@ function App() {
     try {
       await axios.post(`${API}/demo/setup-onboarding`)
       setErrorData(null)
+      fetchAnalyticsOverview()
       // Show success briefly
       setUploadMessage('✅ Onboarding Co-pilot ready — 3 memories added')
       setTimeout(() => setUploadMessage(''), 4000)
@@ -592,24 +699,34 @@ function App() {
   }
 
 
-  const chartData = activityPeriod === 'Week' ? [
-    { d: 'Mon', h: 60 }, { d: 'Tue', h: 75 }, { d: 'Wed', h: 95, active: true, val: '8.2h' }, { d: 'Thu', h: 50 }, { d: 'Fri', h: 85 }, { d: 'Sat', h: 40 }, { d: 'Sun', h: 65 }
-  ] : activityPeriod === 'Month' ? [
-    { d: 'Wk1', h: 45 }, { d: 'Wk2', h: 80 }, { d: 'Wk3', h: 65 }, { d: 'Wk4', h: 90, active: true, val: '32.2h' }
-  ] : [
-    { d: 'Q1', h: 30 }, { d: 'Q2', h: 50 }, { d: 'Q3', h: 70 }, { d: 'Q4', h: 85, active: true, val: '380h' }
-  ];
+  const periodKey = activityPeriod.toLowerCase()
+  const chartData = analyticsOverview?.activity?.[periodKey] || []
+  const totalActivityCount = chartData.reduce((sum, item) => sum + (item.count || 0), 0)
+  const currentPeriodCount = chartData[chartData.length - 1]?.count || 0
+  const previousPeriodCount = chartData[chartData.length - 2]?.count || 0
+  const activityDelta = currentPeriodCount - previousPeriodCount
+  const activityDeltaLabel = previousPeriodCount > 0
+    ? `${Math.abs(Math.round((activityDelta / previousPeriodCount) * 100))}%`
+    : `${Math.abs(activityDelta)}`
+  const activityDeltaText = activityDelta > 0 ? `up ${activityDeltaLabel}` : activityDelta < 0 ? `down ${activityDeltaLabel}` : 'flat'
+  const todayActivity = analyticsOverview?.today || { queries: 0, avg_response_ms: 0, high_confidence: 0, sources_touched: 0 }
+  const topSourcesOverview = analyticsOverview?.top_sources || []
+  const analyticsRecentQueries = analyticsOverview?.recent_queries || []
 
   const memberSince = currentUser?.created_at
     ? new Date(currentUser.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     : 'Not available'
-  const totalMemories = liveStats?.total_memories || 0
-  const totalQueries = benchmarks?.total_queries_served || queryHistory.length
-  const avgQuerySeconds = benchmarks?.avg_query_ms ? (benchmarks.avg_query_ms / 1000).toFixed(2) : '0.00'
-  const recentSources = queryHistory.slice(0, 4)
-  const paymentOverview = (liveStats?.payment_requests || []).slice(0, 3)
-  const activeMemoryTypes = liveStats?.memories_by_type
-    ? Object.entries(liveStats.memories_by_type).filter(([, count]) => count > 0).slice(0, 4)
+  const totalMemories = analyticsOverview?.summary?.total_memories ?? liveStats?.total_memories ?? 0
+  const totalQueries = analyticsOverview?.summary?.total_queries ?? benchmarks?.total_queries_served ?? queryHistory.length
+  const avgQuerySeconds = analyticsOverview?.summary?.avg_query_ms
+    ? (analyticsOverview.summary.avg_query_ms / 1000).toFixed(2)
+    : benchmarks?.avg_query_ms
+      ? (benchmarks.avg_query_ms / 1000).toFixed(2)
+      : '0.00'
+  const recentSources = analyticsRecentQueries.slice(0, 4)
+  const paymentOverview = (analyticsOverview?.payment_requests || liveStats?.payment_requests || []).slice(0, 3)
+  const activeMemoryTypes = analyticsOverview?.memory_distribution
+    ? Object.entries(analyticsOverview.memory_distribution).filter(([, count]) => count > 0).slice(0, 4)
     : []
   const completionScore = Math.min(
     96,
@@ -633,6 +750,7 @@ function App() {
     <div className="min-h-screen text-slate-800 dark:text-slate-200 selection:bg-purple-200 overflow-x-hidden relative hero-gradient">
 
       {/* FIXED NAVBAR */}
+      {activeTab !== 'upload' && (
       <nav className="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300 h-14 flex items-center">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between w-full h-full">
           <div className="flex justify-start items-center">
@@ -648,15 +766,15 @@ function App() {
           <div className="hidden md:flex items-center justify-center gap-1">
             <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dashboard' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>Dashboard</button>
             <button onClick={() => setActiveTab('search')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'search' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>Tasks & Search</button>
-            <button onClick={() => setActiveTab('upload')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'upload' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>Analytics</button>
+            <button onClick={() => setActiveTab('upload')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'upload' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>Memory Hub</button>
             <button onClick={() => setActiveTab('dpdp')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dpdp' ? 'bg-slate-900 dark:bg-slate-800 text-[#6EE7C3] font-medium' : 'text-[#6EE7C3] hover:text-[#6EE7C3]/80'}`}>DPDP Act ✓</button>
           </div>
 
           <div className="flex items-center justify-end gap-2 sm:gap-3">
-            <button aria-label="Search workspace" className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
+            <button aria-label="Search workspace" onClick={focusWorkspaceSearch} className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
               <Search className="w-4 h-4" />
             </button>
-            <button aria-label="Open notifications" className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 relative">
+            <button aria-label="Open notifications" onClick={() => setNotificationsOpen((prev) => !prev)} className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 relative">
               <Bell className="w-4 h-4" />
               <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border border-white"></div>
             </button>
@@ -665,9 +783,22 @@ function App() {
             </a>
             <AnimatedThemeToggler className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400 focus:outline-none" />
             <div ref={profileMenuRef} className="relative ml-1 border-l border-slate-200 pl-2 dark:border-slate-800">
+              {notificationsOpen && (
+                <div className="absolute right-[calc(100%+12px)] top-[calc(100%+8px)] z-[70] w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Workspace updates</div>
+                  <div className="mt-3 space-y-2">
+                    <div className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                      Backend analytics are connected and refreshing automatically.
+                    </div>
+                    <div className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                      Memory Hub now supports live file upload, Gmail sync, and Slack sync.
+                    </div>
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
-                onClick={() => setProfileMenuOpen((prev) => !prev)}
+                onClick={() => { setNotificationsOpen(false); setProfileMenuOpen((prev) => !prev) }}
                 className="flex min-h-[40px] items-center gap-2 rounded-xl px-2 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
                 title="Open profile menu"
                 aria-haspopup="menu"
@@ -717,16 +848,17 @@ function App() {
               {['dashboard', 'search', 'upload', 'dpdp'].map(tab => (
                 <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false) }}
                   className={`w-full text-left px-5 py-3 rounded-xl text-sm font-semibold transition-all min-h-[44px] ${activeTab === tab ? 'bg-[#212121] text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                  {tab === 'dashboard' ? 'Dashboard' : tab === 'search' ? 'Tasks & Search' : tab === 'dpdp' ? 'DPDP Act ✓' : 'Analytics'}
+                  {tab === 'dashboard' ? 'Analytics' : tab === 'search' ? 'Tasks & Search' : tab === 'dpdp' ? 'DPDP Act ✓' : 'Memory Hub'}
                 </button>
               ))}
             </div>
           </div>
         )}
       </nav>
+      )}
 
       {/* MAIN CONTENT AREA */}
-      <main className="pt-32 pb-24 relative z-10 min-h-screen">
+      <main className={`${activeTab === 'upload' ? 'pt-0 pb-0' : 'pt-32 pb-24'} relative z-10 min-h-screen`}>
 
         {/* --- SEARCH / HOME VIEW --- */}
         {activeTab === 'search' && (
@@ -878,6 +1010,7 @@ function App() {
                   </div>
                 )}
               </div>
+
 
               {/* F-17: THINKING CARD */}
               {isThinking && (
@@ -1105,7 +1238,7 @@ function App() {
         )}
 
           {/* --- UPLOAD VIEW --- */}
-          {activeTab === 'upload' && (
+          {activeTab === '__legacy_upload' && (
             <div className="animate-slide-up max-w-3xl mx-auto mt-8 px-6">
               <div className="text-center mb-10">
                 <h2 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">Add to your Knowledge Base</h2>
@@ -1274,6 +1407,566 @@ function App() {
           </div>
         )}
 
+        {activeTab === '__legacy_upload_alt' && (
+          <div className="animate-slide-up mx-auto mt-2 w-full max-w-[980px] px-4 sm:px-6">
+            <div className="relative overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_top_left,rgba(241,247,238,0.92),rgba(255,255,255,0.98)_38%,rgba(244,249,241,0.94))] px-5 py-8 shadow-[0_35px_80px_rgba(124,139,118,0.14)] sm:px-8 lg:px-10 dark:bg-[radial-gradient(circle_at_top_left,rgba(15,23,42,0.98),rgba(2,6,23,0.96)_60%,rgba(6,78,59,0.15))] dark:shadow-none">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(217,242,210,0.5),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_42%)]" />
+
+              <div className="relative z-10">
+                <div className="max-w-3xl">
+                  <h2 className="text-[3.1rem] leading-[0.95] tracking-[-0.045em] text-[#111111] sm:text-[4.5rem] lg:text-[5.25rem] dark:text-white" style={{ fontFamily: '"Cormorant Garamond", serif', fontStyle: 'italic', fontWeight: 500 }}>
+                    Add to your Knowledge Base
+                  </h2>
+                  <p className="mt-5 max-w-2xl text-lg text-[#61665c] dark:text-slate-300">
+                    Connect your tools or paste directly to train the AI instantly.
+                  </p>
+                </div>
+
+                <div className="mt-11 grid gap-5 lg:grid-cols-2">
+                  <Suspense fallback={<div className={`${cardSkeleton} h-48 animate-pulse`} />}>
+                    <GmailCard />
+                  </Suspense>
+                  <Suspense fallback={<div className={`${cardSkeleton} h-48 animate-pulse`} />}>
+                    <SlackCard />
+                  </Suspense>
+                </div>
+
+                <div className="relative mt-10 overflow-hidden rounded-[32px] border border-[#edf1e8] bg-white/88 shadow-[0_28px_65px_rgba(126,140,118,0.16)] dark:border-white/10 dark:bg-slate-950/60 dark:shadow-none">
+
+                  <div className="flex gap-3 overflow-x-auto border-b border-[#eef2ea] px-4 py-4 no-scrollbar dark:border-white/10 sm:px-6">
+                    {[
+                      { id: 'document', label: 'Document', icon: Files },
+                      { id: 'email', label: 'Email', icon: Mail },
+                      { id: 'meeting_notes', label: 'Meeting', icon: CalendarDays },
+                      { id: 'decision', label: 'Decision', icon: Zap },
+                      { id: 'slack', label: 'Slack', icon: MessageSquare },
+                    ].map((tab) => {
+                      const Icon = tab.icon
+                      const active = uploadSource === tab.id
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => { setUploadSource(tab.id); setDecisionMsg(''); setUploadMessage(''); }}
+                          className={`inline-flex min-w-fit items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${active
+                            ? 'bg-[#e8f4e4] text-[#23713a] shadow-sm dark:bg-emerald-500/15 dark:text-emerald-200'
+                            : 'text-[#6d7267] hover:bg-[#f5f7f2] hover:text-[#20231e] dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
+                            }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {tab.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {uploadSource === 'decision' ? (
+                      <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.4fr)_320px]">
+                        <div className="space-y-5">
+                        <div>
+                          <div className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+                            <Zap className="h-3.5 w-3.5" />
+                            Decision DNA
+                          </div>
+                          <h3 className="mt-4 text-2xl font-black tracking-[-0.04em] text-slate-900 dark:text-white">Permanent decision memory</h3>
+                          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+                            Store the decision, why it happened, what was rejected, and who approved it so the team can retrieve the full context later.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Decision Title</label>
+                          <input type="text" value={decisionTitle} onChange={e => setDecisionTitle(e.target.value)}
+                            placeholder="e.g. Switch from AWS to Railway"
+                            className="w-full rounded-[20px] border border-slate-200 bg-white/75 px-4 py-3.5 text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">What Was Decided</label>
+                          <textarea value={decisionWhat} onChange={e => setDecisionWhat(e.target.value)} rows={3}
+                            placeholder="What outcome was decided..."
+                            className="w-full resize-none rounded-[20px] border border-slate-200 bg-white/75 px-4 py-3.5 text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Why This Decision Was Made</label>
+                          <textarea value={decisionWhy} onChange={e => setDecisionWhy(e.target.value)} rows={3}
+                            placeholder="Reasoning, context, data points..."
+                            className="w-full resize-none rounded-[20px] border border-slate-200 bg-white/75 px-4 py-3.5 text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Rejected Alternatives</label>
+                          <textarea value={decisionRejected} onChange={e => setDecisionRejected(e.target.value)} rows={2}
+                            placeholder="Options that were considered but not chosen..."
+                            className="w-full resize-none rounded-[20px] border border-slate-200 bg-white/75 px-4 py-3.5 text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                          />
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Who Decided</label>
+                            <input type="text" value={decisionWho} onChange={e => setDecisionWho(e.target.value)}
+                              placeholder="Name(s)"
+                              className="w-full rounded-[20px] border border-slate-200 bg-white/75 px-4 py-3.5 text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Date</label>
+                            <input type="date" value={decisionDate} onChange={e => setDecisionDate(e.target.value)}
+                              className="w-full rounded-[20px] border border-slate-200 bg-white/75 px-4 py-3.5 text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Tags</label>
+                          <input type="text" value={decisionTags} onChange={e => setDecisionTags(e.target.value)}
+                            placeholder="e.g. infrastructure, cost, tech"
+                            className="w-full rounded-[20px] border border-slate-200 bg-white/75 px-4 py-3.5 text-slate-800 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                          />
+                        </div>
+
+                          <button
+                            onClick={handleDecisionSubmit}
+                            disabled={uploading || !decisionTitle.trim() || !decisionWhat.trim()}
+                            className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#6ecb49] to-[#2f8b45] px-6 py-4 text-base font-black text-white shadow-[0_20px_36px_rgba(57,138,66,0.28)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {uploading ? (
+                              <><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Storing Decision...</>
+                          ) : (
+                            <><Zap className="h-5 w-5" /> Commit Decision to Memory</>
+                          )}
+                        </button>
+
+                        {decisionMsg && (
+                          <div className={`flex items-center gap-3 rounded-[22px] border px-4 py-4 text-sm font-semibold ${decisionMsg.includes('Failed')
+                            ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200'
+                            }`}>
+                            <CheckCircle2 className="h-5 w-5 shrink-0" />
+                            <p>{decisionMsg}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col gap-4">
+                        <div className="rounded-[28px] border border-rose-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,241,242,0.95))] p-6 shadow-[0_18px_40px_rgba(15,23,42,0.05)] dark:border-rose-500/10 dark:bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(127,29,29,0.18))] dark:shadow-none">
+                          <h4 className="text-lg font-black tracking-[-0.03em] text-slate-900 dark:text-white">Why use Decision DNA</h4>
+                          <div className="mt-4 space-y-3">
+                            {[
+                              'Capture rationale, not just the conclusion.',
+                              'Keep institutional knowledge after handoffs.',
+                              'Make future audits and reviews much faster.',
+                            ].map((item) => (
+                              <div key={item} className="flex items-start gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-[28px] border border-slate-200 bg-white/80 p-6 dark:border-white/10 dark:bg-white/5">
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Suggested tags</p>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {['#strategy', '#ops', '#architecture', '#finance'].map((tag) => (
+                              <span key={tag} className="rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                      <div className="p-6 sm:p-8">
+                      <div className="space-y-7">
+                        <div className="rounded-[32px] border border-dashed border-[#cad2c0] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(250,251,248,0.96))] p-8 text-center transition hover:border-[#b8c3ac] dark:border-emerald-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.8),rgba(6,78,59,0.18))]">
+                          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e8f4e4] text-[#2f8b45] dark:text-emerald-300">
+                            <UploadCloud className="h-8 w-8" />
+                          </div>
+                          <h3 className="mt-5 text-[2rem] font-bold tracking-[-0.04em] text-[#151515] dark:text-white">
+                            Drag and drop files here or click to browse
+                          </h3>
+                          <p className="mt-2 text-base text-[#7a7f75] dark:text-slate-400">PDF, DOCX, TXT (Max 50MB)</p>
+                        </div>
+
+                        <div className="relative">
+                          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[#eef1eb] dark:bg-white/10" />
+                          <div className="relative mx-auto w-fit bg-white px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#8f948a] dark:bg-slate-950 dark:text-slate-500">
+                            Or
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.26em] text-[#6a6f66] dark:text-slate-400">Paste Content</label>
+                          <textarea
+                            value={uploadContent}
+                            onChange={(e) => setUploadContent(e.target.value)}
+                            placeholder="E.g. Project 'Aurora' Technical Requirements — The objective of this sprint is to integrate the new vector database with the core reasoning engine..."
+                            className="h-[220px] w-full resize-none rounded-[28px] border border-[#f0f2ed] bg-[#fcfdfb] px-5 py-5 text-base text-slate-800 outline-none transition placeholder:text-[#c4c8c0] focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.26em] text-[#6a6f66] dark:text-slate-400">Source Label</label>
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="relative flex-1">
+                              <Files className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                              <input
+                                type="text"
+                                value={uploadSource === 'document' ? 'Internal_Q4_Strategy' : uploadSource === 'email' ? 'Inbox_Context_Import' : uploadSource === 'meeting_notes' ? 'Weekly_Product_Meeting' : 'Slack_Context_Import'}
+                                readOnly
+                                className="w-full rounded-full border border-[#eef2eb] bg-[#fbfcfa] py-3 pl-11 pr-4 text-sm font-medium text-[#4b5049] outline-none dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {(uploadSource === 'email'
+                                ? ['#customer', '#inbox']
+                                : uploadSource === 'meeting_notes'
+                                  ? ['#meeting', '#weekly']
+                                  : uploadSource === 'slack'
+                                    ? ['#team', '#thread']
+                                    : ['#strategy', '#internal']
+                              ).map((tag) => (
+                                <span key={tag} className="rounded-full bg-[#eff5ee] px-3 py-2 text-xs font-semibold text-[#697067] dark:bg-white/10 dark:text-slate-300">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={handleUpload}
+                          disabled={uploading || !uploadContent}
+                          className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#6ecb49] to-[#2f8b45] px-6 py-4 text-[1.05rem] font-bold text-white shadow-[0_22px_42px_rgba(47,139,69,0.3)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {uploading ? (
+                            <><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Vectorizing...</>
+                          ) : (
+                            <><Sparkles className="h-5 w-5" /> Commit to Memory</>
+                          )}
+                        </button>
+
+                        <div className="flex items-center justify-center gap-2 text-sm text-[#9aa092] dark:text-slate-400">
+                          <Shield className="h-4 w-4" />
+                          Your data is processed locally and never sent to external APIs.
+                        </div>
+
+                        {uploadMessage && (
+                          <div className="flex items-center gap-3 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                            <CheckCircle2 className="h-5 w-5 shrink-0" />
+                            <p>{uploadMessage}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'upload' && (
+          <div className="animate-slide-up min-h-screen bg-[radial-gradient(circle_at_top_left,#f7faf4_0%,#fdfdfb_48%,#f2f6ee_100%)] dark:bg-[radial-gradient(circle_at_top_left,#0f172a_0%,#020617_55%,#07111b_100%)]">
+            <div className="mx-auto flex min-h-screen w-full max-w-[1440px]">
+              <aside className="hidden w-[244px] shrink-0 flex-col border-r border-[#edf1e7] bg-white/68 px-4 py-5 backdrop-blur-xl lg:flex dark:border-white/10 dark:bg-slate-950/55">
+                <button type="button" onClick={() => setActiveTab('search')} className="flex items-center gap-3 px-2 text-left">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#78cf53] to-[#2f8b45] shadow-[0_14px_28px_rgba(61,145,75,0.24)]">
+                    <Database className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-[2rem] font-bold leading-none tracking-[-0.05em] text-[#151515] dark:text-white">ContextOS</div>
+                    <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#83887d] dark:text-slate-400">AI Memory Engine</div>
+                  </div>
+                </button>
+
+                <button onClick={handleNewChat} className="mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#6fca49] to-[#2f8b45] px-6 py-4 text-base font-bold text-white shadow-[0_18px_34px_rgba(54,136,65,0.24)] transition hover:scale-[1.01]">
+                  <Plus className="h-4 w-4" />
+                  New Chat
+                </button>
+
+                <div className="mt-8 space-y-2">
+                  {[
+                    { id: 'search', label: 'Chat', icon: MessageSquare },
+                    { id: 'dashboard', label: 'Analytics', icon: BarChart3 },
+                    { id: 'upload', label: 'Memory Hub', icon: Database },
+                  ].map((item) => {
+                    const Icon = item.icon
+                    const active = activeTab === item.id
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActiveTab(item.id)}
+                        className={`flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-[1.05rem] transition-all ${active
+                          ? 'bg-[#e9f8ec] font-semibold text-[#2d8743] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:bg-emerald-500/15 dark:text-emerald-200'
+                          : 'text-[#334155] hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/5'
+                          }`}
+                      >
+                        <Icon className={`h-5 w-5 ${active ? 'text-[#2d8743]' : 'text-slate-500 dark:text-slate-400'}`} />
+                        {item.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-auto border-t border-[#edf1e7] pt-5 dark:border-white/10">
+                  <div className="space-y-2">
+                    <button onClick={openSettings} className="flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-[1.02rem] text-[#334155] transition hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/5">
+                      <Settings className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                      Settings
+                    </button>
+                    <button onClick={openHelp} className="flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-[1.02rem] text-[#334155] transition hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/5">
+                      <CircleHelp className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                      Help
+                    </button>
+                  </div>
+                </div>
+              </aside>
+
+              <div className="relative flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+                <div className="pointer-events-none absolute left-10 top-24 h-44 w-44 rounded-full bg-[#e8f4df] blur-3xl dark:bg-emerald-500/10" />
+                <div className="pointer-events-none absolute bottom-24 right-16 h-56 w-56 rounded-full bg-[#f0f4ed] blur-3xl dark:bg-slate-700/20" />
+
+                <div className="mx-auto w-full max-w-[980px]">
+                  <div className="flex items-center justify-between lg:hidden">
+                    <button type="button" onClick={() => setActiveTab('search')} className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm dark:bg-white/5 dark:text-slate-200">
+                      <Database className="h-4 w-4 text-emerald-600" />
+                      ContextOS
+                    </button>
+                    <button type="button" onClick={() => setActiveTab('search')} className="rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm dark:bg-white/5 dark:text-slate-200">
+                      Back
+                    </button>
+                  </div>
+
+                  <div className="relative z-10 pt-6 lg:pt-8">
+                    <h2 className="max-w-4xl text-[3.1rem] leading-[0.92] tracking-[-0.05em] text-[#111111] sm:text-[4.4rem] lg:text-[5.25rem] dark:text-white" style={{ fontFamily: '"Cormorant Garamond", serif', fontStyle: 'italic', fontWeight: 500 }}>
+                      Add to your Knowledge Base
+                    </h2>
+                    <p className="mt-5 max-w-2xl text-lg text-[#61665c] dark:text-slate-300">
+                      Connect your tools or paste directly to train the AI instantly.
+                    </p>
+                  </div>
+
+                  <div className="relative z-10 mt-12 grid gap-6 lg:grid-cols-2">
+                    <Suspense fallback={<div className={`${cardSkeleton} h-[260px] animate-pulse`} />}>
+                      <GmailCard />
+                    </Suspense>
+                    <Suspense fallback={<div className={`${cardSkeleton} h-[260px] animate-pulse`} />}>
+                      <SlackCard />
+                    </Suspense>
+                  </div>
+
+                  <div className="relative z-10 mt-10 overflow-hidden rounded-[34px] border border-[#edf1e7] bg-white/92 shadow-[0_35px_80px_rgba(144,156,137,0.18)] dark:border-white/10 dark:bg-slate-950/60 dark:shadow-none">
+                    <div className="flex gap-3 overflow-x-auto border-b border-[#edf1e7] px-5 py-5 no-scrollbar dark:border-white/10">
+                      {[
+                        { id: 'document', label: 'Document', icon: Files },
+                        { id: 'email', label: 'Email', icon: Mail },
+                        { id: 'meeting_notes', label: 'Meeting', icon: CalendarDays },
+                        { id: 'decision', label: 'Decision', icon: Zap },
+                        { id: 'slack', label: 'Slack', icon: MessageSquare },
+                      ].map((tab) => {
+                        const Icon = tab.icon
+                        const active = uploadSource === tab.id
+                        return (
+                          <button
+                            key={tab.id}
+                            onClick={() => { setUploadSource(tab.id); setDecisionMsg(''); setUploadMessage(''); clearSelectedUploadFile(); }}
+                            className={`inline-flex min-w-fit items-center gap-2 rounded-full px-4 py-2.5 text-[1.02rem] transition-all ${active
+                              ? 'bg-[#e9f7e6] font-semibold text-[#2f8b45]'
+                              : 'text-[#6d7267] hover:bg-[#f5f7f2] hover:text-[#20231e] dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
+                              }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {tab.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {uploadSource === 'decision' ? (
+                      <div className="grid gap-8 p-8 lg:grid-cols-[minmax(0,1.35fr)_300px]">
+                        <div className="space-y-5">
+                          <div>
+                            <div className="inline-flex items-center gap-2 rounded-full bg-[#fff2f2] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#c43d3d] dark:bg-rose-500/10 dark:text-rose-300">
+                              <Zap className="h-3.5 w-3.5" />
+                              Decision
+                            </div>
+                            <h3 className="mt-4 text-2xl font-black tracking-[-0.04em] text-slate-900 dark:text-white">Commit structured decision memory</h3>
+                          </div>
+
+                          <input value={decisionTitle} onChange={(e) => setDecisionTitle(e.target.value)} placeholder="Decision title" className="w-full rounded-[22px] border border-[#eef2eb] bg-[#fbfcfa] px-5 py-4 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5" />
+                          <textarea value={decisionWhat} onChange={(e) => setDecisionWhat(e.target.value)} rows={3} placeholder="What was decided?" className="w-full resize-none rounded-[22px] border border-[#eef2eb] bg-[#fbfcfa] px-5 py-4 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5" />
+                          <textarea value={decisionWhy} onChange={(e) => setDecisionWhy(e.target.value)} rows={3} placeholder="Why was it decided?" className="w-full resize-none rounded-[22px] border border-[#eef2eb] bg-[#fbfcfa] px-5 py-4 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5" />
+                          <textarea value={decisionRejected} onChange={(e) => setDecisionRejected(e.target.value)} rows={2} placeholder="Rejected alternatives" className="w-full resize-none rounded-[22px] border border-[#eef2eb] bg-[#fbfcfa] px-5 py-4 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5" />
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <input value={decisionWho} onChange={(e) => setDecisionWho(e.target.value)} placeholder="Who decided" className="w-full rounded-[22px] border border-[#eef2eb] bg-[#fbfcfa] px-5 py-4 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5" />
+                            <input type="date" value={decisionDate} onChange={(e) => setDecisionDate(e.target.value)} className="w-full rounded-[22px] border border-[#eef2eb] bg-[#fbfcfa] px-5 py-4 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5" />
+                          </div>
+
+                          <input value={decisionTags} onChange={(e) => setDecisionTags(e.target.value)} placeholder="Tags" className="w-full rounded-[22px] border border-[#eef2eb] bg-[#fbfcfa] px-5 py-4 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5" />
+
+                          <button
+                            onClick={handleDecisionSubmit}
+                            disabled={uploading || !decisionTitle.trim() || !decisionWhat.trim()}
+                            className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#6fca49] to-[#2f8b45] px-6 py-4 text-[1.02rem] font-bold text-white shadow-[0_22px_42px_rgba(47,139,69,0.3)] transition hover:scale-[1.01] disabled:opacity-50"
+                          >
+                            {uploading ? <><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Storing...</> : <><Sparkles className="h-5 w-5" /> Commit to Memory</>}
+                          </button>
+
+                          {decisionMsg && (
+                            <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                              {decisionMsg}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="animate-float rounded-[28px] border border-[#eef2ea] bg-[linear-gradient(180deg,#ffffff,rgba(240,247,236,0.98))] p-6 shadow-[0_20px_40px_rgba(144,156,137,0.12)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+                          <div className="text-sm font-semibold uppercase tracking-[0.2em] text-[#7a8175] dark:text-slate-400">Why this helps</div>
+                          <div className="mt-4 space-y-3 text-sm leading-6 text-[#556054] dark:text-slate-300">
+                            <p>Capture rationale, not just the outcome.</p>
+                            <p>Keep company memory after handoffs.</p>
+                            <p>Make future audits much faster.</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-8">
+                        <input
+                          ref={memoryFileInputRef}
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.log"
+                          onChange={handleUploadFileSelect}
+                          className="hidden"
+                        />
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => memoryFileInputRef.current?.click()}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              memoryFileInputRef.current?.click()
+                            }
+                          }}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={handleUploadDrop}
+                          className="rounded-[32px] border border-dashed border-[#cbd2c3] bg-[linear-gradient(180deg,#ffffff,rgba(251,252,249,0.98))] px-6 py-14 text-center transition duration-300 hover:border-[#b8c2af] hover:shadow-[inset_0_0_0_1px_rgba(184,194,175,0.24)] dark:border-white/10 dark:bg-white/5 cursor-pointer"
+                        >
+                          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e8f4e4] text-[#2f8b45] transition duration-300 hover:scale-110 dark:bg-emerald-500/15 dark:text-emerald-200">
+                            <UploadCloud className="h-8 w-8" />
+                          </div>
+                          <h3 className="mt-7 text-[2.05rem] font-bold tracking-[-0.05em] text-[#111111] dark:text-white">
+                            Drag and drop files here or click to browse
+                          </h3>
+                          <p className="mt-2 text-base text-[#7a7f75] dark:text-slate-400">PDF, DOCX, TXT (Max 50MB)</p>
+                        </div>
+
+                        <div className="relative my-8">
+                          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[#edf1e7] dark:bg-white/10" />
+                          <div className="relative mx-auto w-fit bg-white px-4 text-xs font-semibold uppercase tracking-[0.22em] text-[#8f948a] dark:bg-slate-950 dark:text-slate-500">
+                            Or
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.26em] text-[#6a6f66] dark:text-slate-400">Paste Content</label>
+                          <textarea
+                            value={uploadContent}
+                            onChange={(e) => setUploadContent(e.target.value)}
+                            placeholder="E.g. Project 'Aurora' Technical Requirements - The objective of this sprint is to integrate the new vector database with the core reasoning engine..."
+                            className="h-[220px] w-full resize-none rounded-[28px] border border-[#f0f2ed] bg-[#fcfdfb] px-5 py-5 text-base text-slate-800 outline-none transition placeholder:text-[#c4c8c0] focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-100"
+                          />
+                        </div>
+
+                        <div className="mt-8">
+                          <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.26em] text-[#6a6f66] dark:text-slate-400">Source Label</label>
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="relative flex-1">
+                              <Files className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7d8377]" />
+                              <input
+                                type="text"
+                                value={uploadSourceLabel}
+                                onChange={(event) => setUploadSourceLabel(event.target.value)}
+                                className="w-full rounded-full border border-[#eef2eb] bg-[#fbfcfa] py-3 pl-11 pr-4 text-sm font-medium text-[#4b5049] outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {(uploadSource === 'email'
+                                ? ['#customer', '#inbox']
+                                : uploadSource === 'meeting_notes'
+                                  ? ['#meeting', '#weekly']
+                                  : uploadSource === 'slack'
+                                    ? ['#team', '#thread']
+                                    : ['#strategy', '#internal']
+                              ).map((tag) => (
+                                <span key={tag} className="rounded-full bg-[#eef5ee] px-4 py-2 text-xs font-semibold text-[#697067] transition hover:-translate-y-0.5 dark:bg-white/10 dark:text-slate-300">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {selectedUploadFile ? (
+                          <div className="mt-6 flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900">
+                            <div>
+                              <div className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUploadFile.name}</div>
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {(selectedUploadFile.size / 1024).toFixed(1)} KB selected for upload
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={clearSelectedUploadFile}
+                              className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+
+                        <button
+                          onClick={handleUpload}
+                          disabled={uploading || (!uploadContent.trim() && !selectedUploadFile)}
+                          className="mt-10 inline-flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#6fca49] to-[#2f8b45] px-6 py-5 text-[1.12rem] font-bold text-white shadow-[0_22px_42px_rgba(47,139,69,0.3)] transition duration-300 hover:scale-[1.01] hover:shadow-[0_26px_48px_rgba(47,139,69,0.34)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {uploading ? (
+                            <><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Vectorizing...</>
+                          ) : (
+                            <><Sparkles className="h-5 w-5" /> {selectedUploadFile ? 'Upload to Memory' : 'Commit to Memory'}</>
+                          )}
+                        </button>
+
+                        <div className="mt-7 flex items-center justify-center gap-2 text-sm text-[#9aa092] dark:text-slate-400">
+                          <Shield className="h-4 w-4" />
+                          Your data is processed locally and never sent to external APIs.
+                        </div>
+
+                        {uploadMessage && (
+                          <div className="mt-6 flex items-center gap-3 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                            <CheckCircle2 className="h-5 w-5 shrink-0" />
+                            <p>{uploadMessage}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pointer-events-none relative z-10 mt-10 hidden justify-center gap-10 lg:flex">
+                    <div className="animate-float h-28 w-28 rounded-[2rem] bg-[radial-gradient(circle_at_40%_35%,#ffffff_0%,#d9ddd8_35%,#aab0a9_100%)] opacity-70 shadow-[0_20px_50px_rgba(169,175,166,0.3)]" />
+                    <div className="animate-float-delayed h-24 w-24 rounded-full bg-[radial-gradient(circle_at_35%_35%,#ffffff_0%,#e8ebe6_42%,#cfd4ce_100%)] opacity-80 shadow-[0_18px_44px_rgba(183,188,181,0.28)]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* --- DASHBOARD VIEW --- */}
         {activeTab === 'dashboard' && (
           <div className="animate-slide-up max-w-[1400px] mx-auto mt-4 pb-12 px-6">
@@ -1341,27 +2034,33 @@ function App() {
 
               {/* LEFT COLUMN */}
               <div className="lg:col-span-1 flex flex-col gap-6">
-                {/* Working Hours */}
+                {/* Today Activity */}
                 <div className="rounded-[2rem] border border-slate-200 bg-white p-6 lg:p-7 relative overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <BorderBeam duration={8} size={200} className="from-transparent via-amber-500 to-transparent" />
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 mb-4">Today&apos;s working hours</h3>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 mb-4">Today&apos;s workspace activity</h3>
                   <div className="flex items-baseline gap-2 mb-6 border-b border-dashed border-slate-200 dark:border-slate-800 pb-5">
                     <Clock className="w-5 h-5 text-amber-700 dark:text-amber-500" />
-                    <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">8 h 27m</span>
+                    <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{todayActivity.queries} queries</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Active time</p>
-                      <p className="text-xs text-slate-500 font-medium mb-3">6h 17m</p>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">High confidence</p>
+                      <p className="text-xs text-slate-500 font-medium mb-3">{todayActivity.high_confidence} strong answers</p>
                       <div className="h-4 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
-                        <div className="h-full w-[70%] stripe-green animate-progress origin-left transition-all duration-1000"></div>
+                        <div
+                          className="h-full stripe-green animate-progress origin-left transition-all duration-1000"
+                          style={{ width: `${Math.min(100, todayActivity.queries ? Math.round((todayActivity.high_confidence / todayActivity.queries) * 100) : 0)}%` }}
+                        ></div>
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Pause time</p>
-                      <p className="text-xs text-slate-500 font-medium mb-3">2h 10m</p>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Sources touched</p>
+                      <p className="text-xs text-slate-500 font-medium mb-3">{todayActivity.sources_touched} documents referenced</p>
                       <div className="h-4 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
-                        <div className="h-full w-[30%] stripe-pink animate-progress origin-left transition-all duration-1000 delay-150"></div>
+                        <div
+                          className="h-full stripe-pink animate-progress origin-left transition-all duration-1000 delay-150"
+                          style={{ width: `${Math.min(100, todayActivity.sources_touched * 12)}%` }}
+                        ></div>
                       </div>
                     </div>
                   </div>
@@ -1411,8 +2110,12 @@ function App() {
                   <BorderBeam duration={8} size={350} reverse className="from-transparent via-emerald-500 to-transparent" />
                   <div className="flex justify-between items-start mb-8 relative z-10">
                     <div>
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Activity</h2>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs font-medium leading-relaxed">You logged <span className="font-bold text-slate-700 dark:text-slate-300">32.2 hours</span> this week — up <span className="font-bold text-slate-700 dark:text-slate-300">4.3 hours</span> from last month.</p>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Analytics activity</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs font-medium leading-relaxed">
+                        {totalActivityCount > 0
+                          ? <>You processed <span className="font-bold text-slate-700 dark:text-slate-300">{totalActivityCount} queries</span> this {activityPeriod.toLowerCase()} with backend-synced telemetry, {activityDeltaText} from the previous slot.</>
+                          : <>No query activity yet for this {activityPeriod.toLowerCase()}. Once the backend receives searches, this chart updates automatically.</>}
+                      </p>
                     </div>
                     <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
                       {['Week', 'Month', 'Year'].map(p => (
@@ -1424,10 +2127,16 @@ function App() {
                   <div className="flex items-end gap-16 justify-between mt-auto h-48 relative">
                     {/* Y-axis absolute stat mock */}
                     <div className="absolute bottom-4 left-0">
-                      <p className="text-5xl font-bold text-slate-900 dark:text-white tracking-tight">32.2h</p>
+                      <p className="text-5xl font-bold text-slate-900 dark:text-white tracking-tight">{totalActivityCount}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded flex items-center gap-1"><ArrowUpRight className="w-3 h-3" /> 15%</span>
-                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">vs last month</span>
+                        <span className={`text-xs font-bold px-2 py-1 rounded flex items-center gap-1 ${
+                          activityDelta >= 0
+                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10'
+                            : 'text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10'
+                        }`}>
+                          <ArrowUpRight className={`w-3 h-3 ${activityDelta < 0 ? 'rotate-90' : ''}`} /> {activityDeltaLabel}
+                        </span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">vs previous slot</span>
                       </div>
                     </div>
 
@@ -1440,97 +2149,101 @@ function App() {
                   </div>
                 </div>
 
-                {/* Today's Tasks Blocks */}
+                {/* Backend Highlights */}
                 <div className="rounded-[2rem] border border-slate-200 bg-white p-6 lg:p-8 relative overflow-hidden shadow-[0_20px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
                   <BorderBeam duration={10} size={300} className="from-transparent via-indigo-500 to-transparent" />
                   <div className="flex justify-between items-center mb-6 relative z-10">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Today&apos;s tasks</h2>
-                    <button type="button" aria-label="View all tasks" className="text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">View all</button>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Backend-connected highlights</h2>
+                    <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Live snapshot</span>
                   </div>
 
-                  <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
-                    {/* Active Blue Task Card */}
-                    <div className="min-w-[280px] bg-gradient-to-br from-blue-500 to-blue-700 rounded-[2rem] p-6 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden group hover:-translate-y-1 transition-transform cursor-pointer">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                      <div className="flex justify-between items-start mb-8 relative z-10">
-                        <span className="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full">10:30 - 12:00 AM</span>
-                      <button aria-label="Open task menu for Technical English Session" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="rounded-[1.75rem] bg-gradient-to-br from-blue-500 to-blue-700 p-6 text-white shadow-xl shadow-blue-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em]">Searches</span>
+                        <MessageSquare className="h-4 w-4" />
                       </div>
-                      <div className="mb-8 relative z-10">
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-100 mb-2 bg-white/10 px-2 py-0.5 rounded-md"><Database className="w-3 h-3" /> English</span>
-                        <h3 className="text-lg font-bold leading-tight mb-2">Technical English<br />Session</h3>
-                        <p className="text-xs text-blue-100/70 font-medium">Practice terminology and core co...</p>
+                      <div className="mt-6 text-4xl font-black tracking-tight">{totalQueries}</div>
+                      <p className="mt-2 text-sm text-blue-100">Total queries served by the backend so far.</p>
+                    </div>
+
+                    <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Speed</span>
+                        <Zap className="h-4 w-4 text-amber-500" />
                       </div>
-                      <div className="flex justify-between items-center border-t border-white/20 pt-4 relative z-10">
-                        <div className="flex -space-x-2">
-                          <div className="w-7 h-7 rounded-full bg-blue-400 border-2 border-blue-600 flex items-center justify-center text-[10px] font-bold">EW</div>
-                          <div className="w-7 h-7 rounded-full bg-indigo-400 border-2 border-blue-600 flex items-center justify-center text-[10px] font-bold">AS</div>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs font-bold text-white/80">
-                          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> 2/4</span>
-                          <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> 12</span>
-                        </div>
+                      <div className="mt-6 text-4xl font-black tracking-tight text-slate-900 dark:text-white">{avgQuerySeconds}s</div>
+                      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Average response time from captured query history.</p>
+                    </div>
+
+                    <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Coverage</span>
+                        <Database className="h-4 w-4 text-emerald-500" />
+                      </div>
+                      <div className="mt-6 text-4xl font-black tracking-tight text-slate-900 dark:text-white">{totalMemories}</div>
+                      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Indexed memories currently available to the assistant.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+                    <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Recent backend queries</h3>
+                        <Clock className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <div className="space-y-3">
+                        {analyticsRecentQueries.length > 0 ? analyticsRecentQueries.slice(0, 3).map((item, index) => (
+                          <div key={`${item.query}-${index}`} className="rounded-2xl bg-white px-4 py-4 shadow-sm dark:bg-slate-950">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold text-slate-900 dark:text-white line-clamp-1">{item.query}</div>
+                                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{item.answer_preview}</div>
+                              </div>
+                              <span className="text-[11px] font-semibold text-slate-400">{relativeTime(item.timestamp)}</span>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="flex flex-wrap gap-2">
+                                {(item.sources || []).slice(0, 2).map((src) => (
+                                  <span key={src} className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-900 dark:text-slate-400">{src}</span>
+                                ))}
+                              </div>
+                              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{item.response_time_ms || 0}ms</span>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-2xl bg-white px-4 py-5 text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+                            No backend query history yet.
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Pending Task Card 1 */}
-                    <div className="min-w-[280px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm relative group hover:-translate-y-1 transition-transform cursor-pointer hover:shadow-md dark:hover:shadow-none">
-                      <div className="flex justify-between items-start mb-8">
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-300">01:00 - 02:30 PM</span>
-                        <button aria-label="Open task menu for UI Components Workshop" className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                          <MoreHorizontal className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                        </button>
+                    <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Top sources</h3>
+                        <Files className="h-4 w-4 text-slate-400" />
                       </div>
-                      <div className="mb-8">
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 mb-2"><Briefcase className="w-3 h-3" /> Design</span>
-                        <h3 className="text-lg font-bold leading-tight text-slate-900 dark:text-white mb-2">UI Components<br />Workshop</h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">Create and refine interface eleme...</p>
+                      <div className="space-y-3">
+                        {topSourcesOverview.length > 0 ? topSourcesOverview.map((item) => (
+                          <div key={item.source} className="rounded-2xl bg-white px-4 py-4 dark:bg-slate-950">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-semibold text-slate-900 dark:text-white line-clamp-1">{item.source}</div>
+                              <div className="text-xs font-bold text-slate-500 dark:text-slate-400">{item.count} hits</div>
+                            </div>
+                            <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
+                                style={{ width: `${Math.min(100, Math.max(18, item.count * 18))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-2xl bg-white px-4 py-5 text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+                            Source ranking will appear after backend searches start returning results.
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-4">
-                        <div className="flex -space-x-2">
-                          <div className="w-7 h-7 rounded-full bg-emerald-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">MK</div>
-                          <div className="w-7 h-7 rounded-full bg-orange-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">PL</div>
-                          <div className="w-7 h-7 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500">+2</div>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> 3/10</span>
-                          <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> 14</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Pending Task Card 2 */}
-                    <div className="min-w-[280px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm relative group hover:-translate-y-1 transition-transform cursor-pointer hover:shadow-md dark:hover:shadow-none">
-                      <div className="flex justify-between items-start mb-8">
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-300">2:30 - 16:00 PM</span>
-                        <button aria-label="Open task menu for Extended Team Sync Meeting" className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                          <MoreHorizontal className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                        </button>
-                      </div>
-                      <div className="mb-8">
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2"><Video className="w-3 h-3" /> Meeting</span>
-                        <h3 className="text-lg font-bold leading-tight text-slate-900 dark:text-white mb-2">Extended Team Sync<br />Meeting</h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">Discuss progress, blockers, and ne...</p>
-                      </div>
-                      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-4">
-                        <div className="flex -space-x-2">
-                          <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">AS</div>
-                          <div className="w-7 h-7 rounded-full bg-pink-400 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">TR</div>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> 0/5</span>
-                          <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> 9</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Add new space */}
-                    <div className="min-w-[100px] flex items-center justify-center">
-                      <button aria-label="Add a new task" className="w-14 h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-slate-400 hover:text-slate-600 transition-colors">
-                        <Plus className="w-6 h-6" />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1625,7 +2338,7 @@ function App() {
                           <div key={i} className="p-4 rounded-xl bg-slate-50/50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-left group/item cursor-pointer">
                             <div className="flex justify-between items-start mb-2">
                               <h4 className="text-sm font-bold text-slate-800 dark:text-white leading-snug break-words pr-4 line-clamp-2">
-                                "{item.query}"
+                                &quot;{item.query}&quot;
                               </h4>
                               <span className="text-[10px] font-medium whitespace-nowrap text-slate-400 mt-0.5 block">{relativeTime(item.timestamp)}</span>
                             </div>
@@ -1684,6 +2397,12 @@ function App() {
           </div>
         )}
       </main>
+
+      {appNotice ? (
+        <div className="fixed bottom-4 left-1/2 z-[95] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-2xl dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+          {appNotice}
+        </div>
+      ) : null}
 
       {uploadMessage ? (
         <div className="fixed right-4 top-20 z-[90] max-w-sm rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 shadow-2xl dark:border-emerald-500/20 dark:bg-slate-950 dark:text-emerald-300">

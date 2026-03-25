@@ -1,6 +1,4 @@
 import { motion } from "framer-motion";
-
-/* eslint-disable react/prop-types */
 export function LineShadowText({
     children,
     shadowColor = "var(--purple-600, #7c3aed)",
