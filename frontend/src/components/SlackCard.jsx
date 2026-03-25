@@ -82,7 +82,7 @@ export default function SlackCard() {
             <button
               type="button"
               onClick={() => setState(STATES.CONFIGURE)}
-              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-[#4A154B] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#5a1c5c]"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6fca49] to-[#2f8b45] px-4 py-3 text-sm font-bold text-white shadow-[0_16px_30px_rgba(52,138,67,0.22)] transition-all hover:scale-[1.01] hover:shadow-[0_20px_34px_rgba(52,138,67,0.28)]"
             >
               <MessageSquare className="h-4 w-4" />
               Connect Slack
@@ -99,7 +99,7 @@ export default function SlackCard() {
                 value={form.bot_token}
                 onChange={(event) => handleChange('bot_token', event.target.value)}
                 placeholder="xoxb-..."
-                className="min-h-[44px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-[#4A154B] focus:ring-4 focus:ring-[#4A154B]/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                className="min-h-[44px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
 
@@ -110,7 +110,7 @@ export default function SlackCard() {
                 value={form.channel_id}
                 onChange={(event) => handleChange('channel_id', event.target.value)}
                 placeholder="C0123456789"
-                className="min-h-[44px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-[#4A154B] focus:ring-4 focus:ring-[#4A154B]/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                className="min-h-[44px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
 
@@ -121,7 +121,7 @@ export default function SlackCard() {
                 value={form.channel_name}
                 onChange={(event) => handleChange('channel_name', event.target.value)}
                 placeholder="eng-updates"
-                className="min-h-[44px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-[#4A154B] focus:ring-4 focus:ring-[#4A154B]/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                className="min-h-[44px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
 
@@ -141,7 +141,7 @@ export default function SlackCard() {
               type="button"
               disabled={!isReady}
               onClick={handleSync}
-              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-[#4A154B] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#5a1c5c] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6fca49] to-[#2f8b45] px-4 py-3 text-sm font-bold text-white shadow-[0_16px_30px_rgba(52,138,67,0.22)] transition-all hover:scale-[1.01] hover:shadow-[0_20px_34px_rgba(52,138,67,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Sync Slack
             </button>
@@ -151,11 +151,11 @@ export default function SlackCard() {
         {state === STATES.SYNCING ? (
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-              <Loader2 className="h-4 w-4 animate-spin text-[#4A154B]" />
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
               Syncing Slack channel into local memory...
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-900">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-[#4A154B] via-[#ED1C24] to-[#6EE7C3]" />
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-[#6fca49] via-[#2f8b45] to-[#6EE7C3]" />
             </div>
           </div>
         ) : null}

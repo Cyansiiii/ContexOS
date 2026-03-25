@@ -35,9 +35,11 @@ ContextOS is heavy software. It runs a Vector Database (ChromaDB) and a Large La
 ContextOS is packaged as a standard self-hosted application.
 
 ### Step 1: Install Dependencies
-You need Python 3.11+ and Node.js. 
+You need Python 3.11 or 3.12 and Node.js. 
 You also need **Ollama**, which is the engine that runs the local AI models.
 Download Ollama from [ollama.com](https://ollama.com) and install it.
+
+Production note: avoid Python 3.14 for now because the Chroma/LangChain vector path is more reliable on Python 3.11/3.12.
 
 ### Step 2: Download the Models
 Open your terminal (Command Prompt or Terminal app) and run:

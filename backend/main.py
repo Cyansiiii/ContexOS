@@ -16,13 +16,14 @@ import hmac
 import requests
 import secrets
 from io import BytesIO
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).with_name(".env"))
+load_dotenv(Path(__file__).with_name(".env.local"), override=True)
 
 try:
     from pypdf import PdfReader
@@ -52,9 +53,27 @@ embed_times = []
 total_queries_served = 0
 server_start_time = time.time()
 
+def _parse_csv_env(name: str):
+    raw_value = os.getenv(name, "").strip()
+    if not raw_value:
+        return []
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://contextos.netlify.app",
+]
+ALLOWED_ORIGINS = list(dict.fromkeys(DEFAULT_ALLOWED_ORIGINS + _parse_csv_env("ALLOWED_ORIGINS")))
+FRONTEND_APP_URL = os.getenv("FRONTEND_APP_URL", ALLOWED_ORIGINS[0]).strip().rstrip("/")
+
 # Allow frontend to talk to backend
 app.add_middleware(
     CORSMiddleware,
+<<<<<<< HEAD
     allow_origins=[
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
@@ -64,6 +83,9 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "https://contextos.netlify.app"
     ],
+=======
+    allow_origins=ALLOWED_ORIGINS,
+>>>>>>> b434a7f42059f768774bb556965892361d068111
     allow_origin_regex=r"https://.*\.netlify\.app",
     allow_credentials=True,
     allow_methods=["*"],
@@ -596,6 +618,182 @@ def get_benchmarks():
         "total_queries_served": total_queries_served,
         "uptime_seconds": uptime_seconds,
         "performance_grade": performance_grade if performance_grade != "N/A" else "-",
+    }
+
+
+def _safe_parse_timestamp(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _build_week_activity():
+    today = datetime.now(timezone.utc).date()
+    labels = []
+    for offset in range(6, -1, -1):
+        day_value = today - timedelta(days=offset)
+        labels.append({
+            "key": day_value.isoformat(),
+            "label": day_value.strftime("%a"),
+            "count": 0,
+            "response_time_ms": 0,
+        })
+
+    label_map = {item["key"]: item for item in labels}
+    for item in query_history:
+        ts = _safe_parse_timestamp(item.get("timestamp"))
+        if ts is None:
+            continue
+        key = ts.astimezone(timezone.utc).date().isoformat()
+        if key in label_map:
+            label_map[key]["count"] += 1
+            label_map[key]["response_time_ms"] += item.get("response_time_ms", 0)
+
+    max_count = max((item["count"] for item in labels), default=0)
+    return [
+        {
+            "d": item["label"],
+            "h": max(18, item["count"] * 22) if item["count"] else 8,
+            "active": item["count"] == max_count and max_count > 0,
+            "val": f"{item['count']} queries",
+            "count": item["count"],
+            "response_time_ms": item["response_time_ms"],
+        }
+        for item in labels
+    ]
+
+
+def _build_month_activity():
+    today = datetime.now(timezone.utc).date()
+    start = today - timedelta(days=27)
+    buckets = []
+    for index in range(4):
+        bucket_start = start + timedelta(days=index * 7)
+        bucket_end = bucket_start + timedelta(days=6)
+        buckets.append({
+            "label": f"Wk {index + 1}",
+            "start": bucket_start,
+            "end": bucket_end,
+            "count": 0,
+        })
+
+    for item in query_history:
+        ts = _safe_parse_timestamp(item.get("timestamp"))
+        if ts is None:
+            continue
+        day_value = ts.astimezone(timezone.utc).date()
+        for bucket in buckets:
+            if bucket["start"] <= day_value <= bucket["end"]:
+                bucket["count"] += 1
+                break
+
+    max_count = max((bucket["count"] for bucket in buckets), default=0)
+    return [
+        {
+            "d": bucket["label"],
+            "h": max(18, bucket["count"] * 16) if bucket["count"] else 10,
+            "active": bucket["count"] == max_count and max_count > 0,
+            "val": f"{bucket['count']} queries",
+            "count": bucket["count"],
+        }
+        for bucket in buckets
+    ]
+
+
+def _quarter_from_month(month_value):
+    return ((month_value - 1) // 3) + 1
+
+
+def _build_year_activity():
+    current_year = datetime.now(timezone.utc).year
+    buckets = [{"label": f"Q{quarter}", "quarter": quarter, "count": 0} for quarter in range(1, 5)]
+
+    for item in query_history:
+        ts = _safe_parse_timestamp(item.get("timestamp"))
+        if ts is None:
+            continue
+        dt = ts.astimezone(timezone.utc)
+        if dt.year != current_year:
+            continue
+        buckets[_quarter_from_month(dt.month) - 1]["count"] += 1
+
+    max_count = max((bucket["count"] for bucket in buckets), default=0)
+    return [
+        {
+            "d": bucket["label"],
+            "h": max(18, bucket["count"] * 14) if bucket["count"] else 10,
+            "active": bucket["count"] == max_count and max_count > 0,
+            "val": f"{bucket['count']} queries",
+            "count": bucket["count"],
+        }
+        for bucket in buckets
+    ]
+
+
+def _build_top_sources(limit=4):
+    counter = Counter()
+    for item in query_history:
+        for source_name in item.get("sources", []):
+            if source_name:
+                counter[source_name] += 1
+    return [
+        {"source": source_name, "count": count}
+        for source_name, count in counter.most_common(limit)
+    ]
+
+
+def _build_today_activity():
+    today = datetime.now(timezone.utc).date()
+    today_queries = []
+    for item in query_history:
+        ts = _safe_parse_timestamp(item.get("timestamp"))
+        if ts is None:
+            continue
+        if ts.astimezone(timezone.utc).date() == today:
+            today_queries.append(item)
+
+    total_queries_today = len(today_queries)
+    avg_ms = int(sum(item.get("response_time_ms", 0) for item in today_queries) / total_queries_today) if total_queries_today else 0
+    high_confidence = sum(1 for item in today_queries if item.get("confidence") == "High")
+    return {
+        "queries": total_queries_today,
+        "avg_response_ms": avg_ms,
+        "high_confidence": high_confidence,
+        "sources_touched": len({source for item in today_queries for source in item.get("sources", []) if source}),
+    }
+
+
+@app.get("/analytics/overview")
+def analytics_overview():
+    total_memories = get_db_stats()
+    memories_by_type, last_ingested = get_memory_metadata_summary()
+    response_times = [item.get("response_time_ms", 0) for item in query_history if item.get("response_time_ms")]
+    avg_query_ms = int(sum(response_times) / len(response_times)) if response_times else 0
+    latest_query = query_history[0] if query_history else None
+
+    return {
+        "summary": {
+            "total_memories": total_memories,
+            "total_queries": total_queries_served,
+            "avg_query_ms": avg_query_ms,
+            "avg_embed_ms": int(sum(embed_times) / len(embed_times)) if embed_times else 0,
+            "total_payments": len(payment_requests),
+            "last_ingested": last_ingested,
+            "last_query_at": latest_query.get("timestamp") if latest_query else None,
+        },
+        "today": _build_today_activity(),
+        "activity": {
+            "week": _build_week_activity(),
+            "month": _build_month_activity(),
+            "year": _build_year_activity(),
+        },
+        "top_sources": _build_top_sources(),
+        "recent_queries": query_history[:6],
+        "memory_distribution": memories_by_type,
+        "payment_requests": payment_requests[:5],
     }
 
 
@@ -1150,7 +1348,7 @@ async def gmail_callback(code: str, state: str = None):
     try:
         exchange_code(code)
         return RedirectResponse(
-            url="http://localhost:5173/?tab=upload&gmail=connected"
+            url=f"{FRONTEND_APP_URL}/?tab=upload&gmail=connected"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OAuth exchange failed: {str(e)}")

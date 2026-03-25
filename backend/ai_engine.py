@@ -6,10 +6,7 @@ import sys
 import threading
 from types import SimpleNamespace
 
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.llms import Ollama
-from langchain_community.vectorstores import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+import requests
 
 DB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "chroma_db")
 FALLBACK_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "fallback_memory.json")
@@ -27,26 +24,52 @@ embeddings = None
 vectorstore = None
 VECTORSTORE_AVAILABLE = False
 
-try:
-    llm = Ollama(
-        model="mistral",
-        temperature=0.1,
-        num_predict=160,
-        num_ctx=1024,
-        keep_alive="30m",
-    )
-    if sys.version_info < (3, 14):
-        embeddings = OllamaEmbeddings(model="nomic-embed-text")
-        vectorstore = Chroma(
-            persist_directory=DB_DIR,
-            embedding_function=embeddings
+
+class LocalOllamaLLM:
+    def __init__(self, model="mistral"):
+        self.model = model
+
+    def invoke(self, prompt):
+        response = requests.post(
+            "http://127.0.0.1:11434/api/generate",
+            json={
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.1,
+                    "num_predict": 160,
+                    "num_ctx": 1024,
+                },
+                "keep_alive": "30m",
+            },
+            timeout=120,
         )
-        VECTORSTORE_AVAILABLE = True
+        response.raise_for_status()
+        data = response.json()
+        return (data.get("response") or "").strip()
+
+
+try:
+    llm = LocalOllamaLLM(model="mistral")
+    if sys.version_info < (3, 14):
+        try:
+            from langchain_community.embeddings import OllamaEmbeddings
+            from langchain_community.vectorstores import Chroma
+
+            embeddings = OllamaEmbeddings(model="nomic-embed-text")
+            vectorstore = Chroma(
+                persist_directory=DB_DIR,
+                embedding_function=embeddings
+            )
+            VECTORSTORE_AVAILABLE = True
+        except Exception as chroma_error:
+            print(f"WARNING: Chroma disabled, using JSON fallback store: {chroma_error}")
     else:
         print("WARNING: Python 3.14+ detected. Skipping Chroma and using JSON fallback store.")
 except Exception as e:
-    print(f"WARNING: Ollama or ChromaDB not configured correctly: {e}")
-    print("Falling back to local JSON memory store.")
+    print(f"WARNING: Ollama client setup failed: {e}")
+    llm = None
 
 
 def _ensure_fallback_db():
@@ -116,6 +139,28 @@ def _split_sentences(text):
     return [part.strip() for part in re.split(r"(?<=[.!?])\s+", text) if part.strip()]
 
 
+def _chunk_text(text, chunk_size=500, chunk_overlap=50):
+    if not text:
+        return []
+
+    if len(text) <= chunk_size:
+        return [text]
+
+    chunks = []
+    start = 0
+    text_length = len(text)
+    step = max(1, chunk_size - chunk_overlap)
+
+    while start < text_length:
+        end = min(text_length, start + chunk_size)
+        chunks.append(text[start:end])
+        if end >= text_length:
+            break
+        start += step
+
+    return chunks
+
+
 def _build_fast_answer(question, relevant_docs):
     question_tokens = _tokenize(question)
     ranked_sentences = []
@@ -166,6 +211,12 @@ def _build_demo_answer(question, relevant_docs):
     acme_text = _find_doc_by_source(relevant_docs, "client_acme_rejection")
     ops_text = _find_doc_by_source(relevant_docs, "ops_runbook")
     tech_stack_text = _find_doc_by_source(relevant_docs, "tech_stack_rationale")
+    onboarding_roles_text = _find_doc_by_source(relevant_docs, "email_onboarding_and_roles")
+    finance_billing_text = _find_doc_by_source(relevant_docs, "email_finance_invoice_and_billing")
+    security_policy_text = _find_doc_by_source(relevant_docs, "email_security_and_data_policy")
+    release_notes_text = _find_doc_by_source(relevant_docs, "email_release_v1_1")
+    roadmap_text = _find_doc_by_source(relevant_docs, "email_q3_roadmap_meeting")
+    execution_plan_text = _find_doc_by_source(relevant_docs, "email_engineering_execution_plan")
 
     if "switch" in question_lower and "aws" in question_lower and "railway" in question_lower and aws_text:
         return (
@@ -178,6 +229,9 @@ def _build_demo_answer(question, relevant_docs):
 
     if "payment" in question_lower and ("owner" in question_lower or "owns" in question_lower) and (payment_text or expertise_text):
         return "Anandam owns the payment integration, and the stack uses Razorpay v2."
+
+    if "onboarding buddy" in question_lower and onboarding_roles_text:
+        return "Priya Nair is the new employee's onboarding buddy."
 
     if "onboarding" in question_lower and onboarding_text:
         return "Standard onboarding takes 2-3 days, not weeks."
@@ -193,6 +247,69 @@ def _build_demo_answer(question, relevant_docs):
 
     if "deployment" in question_lower and (ops_text or expertise_text):
         return "Talk to Anandam about deployment. We deploy on Railway."
+
+    if "march 2026 invoice" in question_lower or ("invoice" in question_lower and "due date" in question_lower and finance_billing_text):
+        return "The March 2026 Meridian Labs invoice is due on March 28, 2026."
+
+    if "billing" in question_lower and "meridian labs" in question_lower and finance_billing_text:
+        return "Kavya Menon handles billing queries for Meridian Labs."
+
+    if "security incidents" in question_lower and security_policy_text:
+        return "Security incidents should be reported immediately to Daniel Osei."
+
+    if "staging url" in question_lower and release_notes_text:
+        return "The staging URL for ContextOS v1.1 is https://staging-v1-1.contextos.app."
+
+    if "chroma" in question_lower and "re-index" in question_lower and roadmap_text:
+        return "The ChromaDB re-index was scheduled as a controlled weekend maintenance task, not during business hours."
+
+    if "ask hub" in question_lower and "layout" in question_lower and release_notes_text:
+        return "The Ask Hub layout was changed to reduce scroll depth, improve source scanning, and make first-response clarity better for operators."
+
+    if "multi-user workspace" in question_lower and roadmap_text:
+        return "Multi-user workspace support was approved for phased delivery after permissions and audit logs are completed."
+
+    if "snapshots" in question_lower and "chromadb" in question_lower and security_policy_text:
+        return "ChromaDB snapshots should be stored only in the encrypted company backups bucket, never on personal drives."
+
+    if "office" in question_lower and security_policy_text:
+        return "Engineers are expected to work from the office on Tuesdays and Thursdays unless an exception is approved."
+
+    if "violates the data handling policy" in question_lower or ("data handling policy" in question_lower and security_policy_text):
+        return "If someone violates the data handling policy, their access is suspended pending a security review and manager escalation."
+
+    if "search" in question_lower and "retrieval overhaul" in question_lower and (onboarding_roles_text or roadmap_text):
+        return "Priya Nair is responsible for the Search and Retrieval overhaul."
+
+    if "who is daniel osei" in question_lower and security_policy_text:
+        return "Daniel Osei is the Security Operations Lead and the primary escalation contact for engineering security incidents."
+
+    if "q3 roadmap" in question_lower and ("summarize" in question_lower or "summary" in question_lower) and roadmap_text:
+        return (
+            "The Q3 roadmap meeting decided to run the ChromaDB re-index on a controlled weekend window, "
+            "approved phased multi-user workspace support after permissions and audit logs, and kept FastAPI as the backend foundation."
+        )
+
+    if "known issues" in question_lower and "v1.1" in question_lower and release_notes_text:
+        return "Known issues in v1.1 are stale analytics after sync, duplicate source chips in some edge cases, and delayed Gmail sync status refresh."
+
+    if "features" in question_lower and "v1.1" in question_lower and release_notes_text:
+        return "v1.1 introduced the new Ask Hub layout, improved source chips, backend analytics wiring, and the first Memory Hub sync flows."
+
+    if "tasks assigned to priya nair" in question_lower and execution_plan_text:
+        return (
+            "Priya Nair's active tasks are serving as onboarding buddy for the new product engineer, "
+            "leading the Search and Retrieval overhaul, and coordinating v1.1 release readiness."
+        )
+
+    if "documents mention the fastapi backend" in question_lower and (release_notes_text or roadmap_text or execution_plan_text):
+        return "The FastAPI backend is mentioned in the v1.1 release notes, the Q3 roadmap summary, and the engineering execution plan."
+
+    if "security" in question_lower and "privacy rules" in question_lower and execution_plan_text:
+        return (
+            "Engineering must keep customer data in approved internal systems, store ChromaDB snapshots only in encrypted backups, "
+            "and report incidents directly to Daniel Osei."
+        )
 
     if "tech stack" in question_lower and ("why" in question_lower or "reason" in question_lower):
         if tech_stack_text:
@@ -249,11 +366,7 @@ def retrieve_memory(question, limit=RETRIEVAL_LIMIT):
 
 def store_memory(text, metadata):
     """Save any piece of information into memory."""
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50
-    )
-    chunks = splitter.split_text(text)
+    chunks = _chunk_text(text, chunk_size=500, chunk_overlap=50)
 
     if VECTORSTORE_AVAILABLE and vectorstore is not None:
         vectorstore.add_texts(

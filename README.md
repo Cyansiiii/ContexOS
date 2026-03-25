@@ -37,7 +37,7 @@ Website -Link -https://contextos-du1q.vercel.app/
 ## 💻 How to Run Locally
 
 ### 1. Prerequisites
-- **Python 3.9+** installed.
+- **Python 3.11 or 3.12** installed. Python 3.14 is not recommended for production because the Chroma/LangChain stack is not stable there.
 - **Node.js 18+** installed.
 - **Ollama** installed on your machine.
 
@@ -60,7 +60,13 @@ uvicorn main:app --reload
 ```
 *The backend API will run on `http://localhost:8000`*
 
+<<<<<<< HEAD
 ### 4. Enable Razorpay Test Checkout
+=======
+For production or deployment, use Python `3.11` to keep the vector store path enabled. The repo includes a [`.python-version`](/c:/New%20folder/WEB_DEVELOPMENT/PRACTICE/New%20folder/contextOS/ContextOS/.python-version) file pinned to `3.11`.
+
+### 3.1 Enable Razorpay Test Checkout
+>>>>>>> b434a7f42059f768774bb556965892361d068111
 To enable real Razorpay test-mode checkout for the pricing modal:
 ```bash
 cd backend
@@ -89,7 +95,17 @@ python demo_data.py
 ` ` `
 This pre-loads 15 realistic company memories so ContextOS can answer questions immediately.
 
+<<<<<<< HEAD
 ### 6. Start the Frontend App (React/Vite)
+=======
+To load the email-style evaluation dataset used for deeper retrieval checks, run:
+```bash
+cd backend
+python demo_data_contextos_emails.py
+```
+
+### 4. Start the Frontend App (React/Vite)
+>>>>>>> b434a7f42059f768774bb556965892361d068111
 Open a new terminal session, navigate to the `frontend` folder, install JS dependencies, and start the Vite dev server:
 ```bash
 cd frontend
@@ -97,6 +113,12 @@ npm install
 npm run dev
 ```
 *The web app will be available on `http://localhost:5173`*
+
+For production env setup:
+- frontend env template: [`frontend/.env.example`](/c:/New%20folder/WEB_DEVELOPMENT/PRACTICE/New%20folder/contextOS/ContextOS/frontend/.env.example)
+- backend env template: [`backend/.env.example`](/c:/New%20folder/WEB_DEVELOPMENT/PRACTICE/New%20folder/contextOS/ContextOS/backend/.env.example)
+- live deploy guide: [`LIVE_DEPLOY.md`](/c:/New%20folder/WEB_DEVELOPMENT/PRACTICE/New%20folder/contextOS/ContextOS/LIVE_DEPLOY.md)
+- final launch checklist: [`LAUNCH_CHECKLIST.md`](/c:/New%20folder/WEB_DEVELOPMENT/PRACTICE/New%20folder/contextOS/ContextOS/LAUNCH_CHECKLIST.md)
 
 ## 🔒 Security & Privacy (Local Model Advantage)
 Since ContextOS runs `Mistral` via Ollama directly on your hardware, your proprietary company data NEVER leaves your internal network. ContextOS boasts:
