@@ -73,19 +73,7 @@ FRONTEND_APP_URL = os.getenv("FRONTEND_APP_URL", ALLOWED_ORIGINS[0]).strip().rst
 # Allow frontend to talk to backend
 app.add_middleware(
     CORSMiddleware,
-<<<<<<< HEAD
-    allow_origins=[
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "http://localhost:5174", 
-        "http://127.0.0.1:5174",
-        "http://localhost:3000", 
-        "http://127.0.0.1:3000",
-        "https://contextos.netlify.app"
-    ],
-=======
     allow_origins=ALLOWED_ORIGINS,
->>>>>>> b434a7f42059f768774bb556965892361d068111
     allow_origin_regex=r"https://.*\.netlify\.app",
     allow_credentials=True,
     allow_methods=["*"],

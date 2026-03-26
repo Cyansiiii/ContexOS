@@ -747,14 +747,8 @@ function App() {
   return (
     <div className="min-h-screen text-slate-800 dark:text-slate-200 selection:bg-purple-200 overflow-x-hidden relative hero-gradient">
 
-<<<<<<< HEAD
-  {/* FLOATING TOP NAVIGATION */ }
-  {
-    activeTab !== 'analytics' && (
-=======
-      {/* FIXED NAVBAR */}
-      {activeTab !== 'upload' && (
->>>>>>> b434a7f42059f768774bb556965892361d068111
+      {/* FLOATING TOP NAVIGATION */}
+      {activeTab !== 'analytics' && (
       <nav className="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300 h-14 flex items-center">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between w-full h-full">
           <div className="flex justify-start items-center">
@@ -767,20 +761,12 @@ function App() {
             </div>
           </div>
 
-<<<<<<< HEAD
-    <div className="hidden md:flex items-center justify-center gap-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 p-1 rounded-full shadow-sm">
-      <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dashboard' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Dashboard</button>
-      <button onClick={() => setActiveTab('search')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'search' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Tasks & Search</button>
-      <button onClick={() => setActiveTab('upload')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'upload' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Memory Hub</button>
-      <button onClick={() => setActiveTab('analytics')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'analytics' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Analytics</button>
-      <button onClick={() => setActiveTab('dpdp')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dpdp' ? 'bg-slate-900 dark:bg-slate-800 text-[#6EE7C3] font-medium shadow-sm' : 'text-[#6EE7C3] hover:text-[#6EE7C3]/80 hover:bg-black/5 dark:hover:bg-white/5'}`}>DPDP Act ✓</button>
-=======
-          <div className="hidden md:flex items-center justify-center gap-1">
-        <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dashboard' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>Dashboard</button>
-        <button onClick={() => setActiveTab('search')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'search' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>Tasks & Search</button>
-        <button onClick={() => setActiveTab('upload')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'upload' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>Memory Hub</button>
-        <button onClick={() => setActiveTab('dpdp')} className={`px-3 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dpdp' ? 'bg-slate-900 dark:bg-slate-800 text-[#6EE7C3] font-medium' : 'text-[#6EE7C3] hover:text-[#6EE7C3]/80'}`}>DPDP Act ✓</button>
->>>>>>> b434a7f42059f768774bb556965892361d068111
+          <div className="hidden md:flex items-center justify-center gap-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 p-1 rounded-full shadow-sm">
+            <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dashboard' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Dashboard</button>
+            <button onClick={() => setActiveTab('search')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'search' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Tasks & Search</button>
+            <button onClick={() => setActiveTab('upload')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'upload' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Memory Hub</button>
+            <button onClick={() => setActiveTab('analytics')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'analytics' ? 'bg-slate-900 dark:bg-slate-800 text-white font-medium shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}>Analytics</button>
+            <button onClick={() => setActiveTab('dpdp')} className={`px-4 py-1.5 rounded-full text-[13px] transition-all ${activeTab === 'dpdp' ? 'bg-slate-900 dark:bg-slate-800 text-[#6EE7C3] font-medium shadow-sm' : 'text-[#6EE7C3] hover:text-[#6EE7C3]/80 hover:bg-black/5 dark:hover:bg-white/5'}`}>DPDP Act ✓</button>
       </div>
 
       <div className="flex items-center justify-end gap-2 sm:gap-3">
